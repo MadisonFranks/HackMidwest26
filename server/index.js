@@ -1,9 +1,13 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { Agent, tool, DocumentBlock, ImageBlock, TextBlock, BedrockModel } from '@strands-agents/sdk';
 import { z } from 'zod';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, '.env') });
 dotenv.config();
 
 const app = express();
@@ -49,15 +53,51 @@ const urlInspectionTool = tool({
 });
 
 // 3. Initialize Bedrock Model & Strands Agent
+let rawKey = process.env.AWS_BEARER_TOKEN_BEDROCK ||
+             process.env.BEDROCK_API_KEY ||
+             process.env.BedrockAPIKEY ||
+             process.env.AWS_API_KEY;
+
+if (rawKey) {
+  rawKey = rawKey.trim();
+  // Ensure the required 'bedrock-api-key-' prefix is present if it's a Bedrock API Key
+  if (rawKey.startsWith('YmVk') && !rawKey.startsWith('bedrock-api-key-')) {
+    rawKey = `bedrock-api-key-${rawKey}`;
+  }
+}
+
 const modelId = process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-sonnet-20241022-v2:0';
 const region = process.env.AWS_REGION || 'us-east-1';
-const apiKey = process.env.AWS_BEARER_TOKEN_BEDROCK || process.env.BEDROCK_API_KEY;
+
+const clientConfig = {};
+if (rawKey && !process.env.AWS_ACCESS_KEY_ID) {
+  // Supply dummy credentials to prevent AWS SDK SigV4 signer from erroring before bearer auth
+  clientConfig.credentials = {
+    accessKeyId: 'anonymous',
+    secretAccessKey: 'anonymous'
+  };
+}
 
 const bedrockModel = new BedrockModel({
   modelId,
   region,
-  ...(apiKey ? { apiKey } : {})
+  ...(rawKey ? { apiKey: rawKey } : {}),
+  ...(Object.keys(clientConfig).length > 0 ? { clientConfig } : {})
 });
+
+// If using Bearer token, remove duplicate SigV4 Authorization header to prevent HTTP/2 conflict
+if (rawKey) {
+  bedrockModel._client.middlewareStack.add((next) => async (args) => {
+    delete args.request.headers['Authorization'];
+    delete args.request.headers['authorization'];
+    args.request.headers['authorization'] = `Bearer ${rawKey}`;
+    return next(args);
+  }, {
+    step: 'finalizeRequest',
+    priority: 'lowest',
+    name: 'cleanBearerAuthorizationHeader'
+  });
+}
 
 const scamShieldAgent = new Agent({
   model: bedrockModel,
@@ -72,7 +112,7 @@ Produce an objective assessment with a danger score (0-100), risk level (CRITICA
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   const hasAccessKey = Boolean(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
-  const hasBearerToken = Boolean(process.env.AWS_BEARER_TOKEN_BEDROCK || process.env.BEDROCK_API_KEY);
+  const hasBearerToken = Boolean(rawKey);
   const bedrockReady = hasAccessKey || hasBearerToken;
 
   res.json({
@@ -81,7 +121,7 @@ app.get('/api/health', (req, res) => {
     bedrockReady,
     region,
     modelId,
-    credentialType: hasAccessKey ? 'IAM Access Key' : hasBearerToken ? 'Bearer Token' : 'None detected (create server/.env)'
+    credentialType: hasAccessKey ? 'IAM Access Key' : hasBearerToken ? 'Bearer Token (API Key)' : 'None detected (check server/.env)'
   });
 });
 
