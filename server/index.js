@@ -109,7 +109,7 @@ app.post('/api/analyze', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => {
   console.log(`🛡️  ScamShield Strands Agent API listening on http://localhost:${PORT}`);
 });
