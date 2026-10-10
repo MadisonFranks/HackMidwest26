@@ -1,3 +1,4 @@
+
 {
   "manifest_version": 3,
   "name": "ScamShield AI",
@@ -10,6 +11,10 @@
   "permissions": [
     "storage",
     "contextMenus"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:3001/*",
+    "http://localhost:3001/*"
   ],
   "background": {
     "service_worker": "background.js"

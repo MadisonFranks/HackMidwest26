@@ -10,8 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "pdfjs-dist": "^6.4.299",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/chrome": "^0.3.5",
