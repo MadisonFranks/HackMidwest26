@@ -11,6 +11,9 @@
     "storage",
     "contextMenus"
   ],
+  "host_permissions": [
+    "http://localhost:5000/*"
+  ],
   "background": {
     "service_worker": "background.js"
   }
