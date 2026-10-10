@@ -186,6 +186,127 @@ textarea:focus {
   margin: 4px 0 10px;
 }
 
+/* File Dropzone */
+.file-dropzone {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: #f8fafc;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .file-dropzone {
+    background: #1e293b;
+    border-color: #475569;
+  }
+}
+
+.file-dropzone:hover,
+.file-dropzone.drag-over {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.dropzone-icon {
+  font-size: 20px;
+}
+
+.dropzone-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.dropzone-text strong {
+  font-size: 11px;
+  color: #334155;
+}
+
+@media (prefers-color-scheme: dark) {
+  .dropzone-text strong {
+    color: #e2e8f0;
+  }
+}
+
+.dropzone-text span {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+/* File Preview Card */
+.file-preview-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .file-preview-card {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: rgba(99, 102, 241, 0.35);
+  }
+}
+
+.file-preview-icon {
+  font-size: 20px;
+}
+
+.file-preview-details {
+  flex: 1;
+  overflow: hidden;
+  text-align: left;
+}
+
+.file-preview-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (prefers-color-scheme: dark) {
+  .file-preview-name {
+    color: #f1f5f9;
+  }
+}
+
+.file-preview-meta {
+  font-size: 9px;
+  color: #6366f1;
+  font-weight: 500;
+}
+
+.file-remove-button {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.file-remove-button:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
 .button-group {
   display: flex;
   flex-direction: column;

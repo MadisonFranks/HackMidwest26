@@ -1,14 +1,14 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { Agent, tool } from '@strands-agents/sdk';
+import { Agent, tool, DocumentBlock, ImageBlock, TextBlock } from '@strands-agents/sdk';
 import { z } from 'zod';
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '25mb' }));
 
 // 1. Zod schema for structured agent output
 const analysisSchema = z.object({
@@ -19,18 +19,19 @@ const analysisSchema = z.object({
   recommendedAction: z.string().describe('Clear next step guidance for the user')
 });
 
-// 2. Strands Agent Tool: Inspect suspicious links found in messages
+// 2. Strands Agent Tool: Inspect suspicious links found in messages or files
 const urlInspectionTool = tool({
   name: 'inspect_url',
-  description: 'Inspects a URL found in the message to check for suspicious domains or IP addresses',
+  description: 'Inspects a URL found in the message or file to check for suspicious domains or IP addresses',
   inputSchema: z.object({
     url: z.string().describe('The URL to inspect')
   }),
   callback: async ({ url }) => {
     try {
-      const parsed = new URL(url);
+      const normalizedUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+      const parsed = new URL(normalizedUrl);
       const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(parsed.hostname);
-      const hasSuspiciousTld = /\.(xyz|top|work|click|loan|info|tk|gq|cf)$/i.test(parsed.hostname);
+      const hasSuspiciousTld = /\.(xyz|top|work|click|loan|info|tk|gq|cf|buzz|country|kim|stream|gdn|mom|rest|live|fit|bar|cam)$/i.test(parsed.hostname);
 
       return JSON.stringify({
         hostname: parsed.hostname,
@@ -50,10 +51,10 @@ const urlInspectionTool = tool({
 // 3. Initialize Strands Agent (Powered by AWS Bedrock)
 const scamShieldAgent = new Agent({
   systemPrompt: `You are ScamShield AI, an autonomous cybersecurity investigation agent built for Hack Midwest 2026.
-Your role is to analyze suspicious text, emails, SMS messages, and links for phishing, fraud, smishing, or credential harvesting.
-If any URL or link is present in the text, you MUST call the inspect_url tool to check it.
+Your role is to analyze suspicious text, emails (.eml files), SMS messages, invoices (.pdf), screenshots, attachments, and links for phishing, fraud, smishing, invoice scams, or credential harvesting.
+If any URL or link is present in the text or attached file, you MUST call the inspect_url tool to check it.
 
-Produce an objective assessment with a danger score (0-100), risk level, summary, red flag indicators, and recommended actions.`,
+Produce an objective assessment with a danger score (0-100), risk level (CRITICAL, HIGH, MODERATE, LOW), summary, red flag indicators, and recommended actions.`,
   tools: [urlInspectionTool]
 });
 
@@ -66,18 +67,85 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Main Analysis Endpoint
+// Main Analysis Endpoint (Supports text and files)
 app.post('/api/analyze', async (req, res) => {
   try {
-    const { message } = req.body;
-    if (!message || typeof message !== 'string') {
-      return res.status(400).json({ error: 'Message text is required' });
+    const { message, file } = req.body;
+
+    if ((!message || typeof message !== 'string' || !message.trim()) && !file) {
+      return res.status(400).json({ error: 'Either message text or an uploaded file is required' });
     }
 
-    const result = await scamShieldAgent.invoke(
-      `Investigate this message for security threats and fraud:\n\n"""${message}"""`,
-      { structuredOutputSchema: analysisSchema }
-    );
+    // Build comprehensive prompt text
+    let promptText = `Investigate the following submission for cybersecurity threats, fraud, phishing, smishing, fake invoices, or credential harvesting:\n\n`;
+
+    if (file) {
+      promptText += `ATTACHED FILE:\n`;
+      promptText += `- Name: ${file.name || 'unnamed'}\n`;
+      promptText += `- Type: ${file.type || 'unknown'}\n`;
+      if (file.size) {
+        promptText += `- Size: ${file.size} bytes\n`;
+      }
+      if (file.content) {
+        promptText += `\nFILE EXTRACTED TEXT:\n"""\n${file.content.slice(0, 30000)}\n"""\n\n`;
+      }
+    }
+
+    if (message && message.trim()) {
+      promptText += `USER MESSAGE / CONTEXT:\n"""\n${message.trim()}\n"""\n\n`;
+    }
+
+    promptText += `Check for deceptive urgency, suspicious sender headers, mismatched links, fake invoice/billing claims, or requests for sensitive info. If any URL is detected, use inspect_url to inspect it.`;
+
+    // Attempt multimodal Block creation if file dataUrl is present
+    let mediaBlock = null;
+    if (file && file.dataUrl) {
+      try {
+        const match = file.dataUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-+.]+);base64,(.+)$/);
+        if (match) {
+          const mimeType = match[1];
+          const base64Data = match[2];
+          const bytes = new Uint8Array(Buffer.from(base64Data, 'base64'));
+          const ext = file.name ? file.name.split('.').pop().toLowerCase() : '';
+
+          if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext) || mimeType.startsWith('image/')) {
+            const format = ext === 'jpg' ? 'jpeg' : (ext || 'png');
+            mediaBlock = new ImageBlock({
+              format: ['png', 'jpeg', 'gif', 'webp'].includes(format) ? format : 'png',
+              source: { bytes }
+            });
+          } else if (['pdf', 'csv', 'doc', 'docx', 'xls', 'xlsx', 'html', 'txt', 'md', 'json', 'xml'].includes(ext) || mimeType === 'application/pdf') {
+            const format = ext === 'pdf' ? 'pdf' : (ext || 'txt');
+            mediaBlock = new DocumentBlock({
+              name: file.name || 'document',
+              format,
+              source: { bytes }
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('Could not construct multimodal Block, proceeding with text prompt:', err.message);
+      }
+    }
+
+    let result;
+    if (mediaBlock) {
+      try {
+        result = await scamShieldAgent.invoke(
+          [new TextBlock(promptText), mediaBlock],
+          { structuredOutputSchema: analysisSchema }
+        );
+      } catch (invokeError) {
+        console.warn('Multimodal invoke encountered an issue, falling back to text prompt:', invokeError.message);
+        result = await scamShieldAgent.invoke(promptText, {
+          structuredOutputSchema: analysisSchema
+        });
+      }
+    } else {
+      result = await scamShieldAgent.invoke(promptText, {
+        structuredOutputSchema: analysisSchema
+      });
+    }
 
     let parsedData = result.structuredOutput;
 
@@ -92,7 +160,7 @@ app.post('/api/analyze', async (req, res) => {
           riskLevel: 'MODERATE',
           summary: rawText,
           indicators: ['AI analysis generated text output'],
-          recommendedAction: 'Carefully verify the sender.'
+          recommendedAction: 'Carefully verify the sender and attachments.'
         };
       }
     }
