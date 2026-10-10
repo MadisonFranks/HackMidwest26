@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { Agent, tool, DocumentBlock, ImageBlock, TextBlock } from '@strands-agents/sdk';
+import { Agent, tool, DocumentBlock, ImageBlock, TextBlock, BedrockModel } from '@strands-agents/sdk';
 import { z } from 'zod';
 
 dotenv.config();
@@ -48,8 +48,19 @@ const urlInspectionTool = tool({
   }
 });
 
-// 3. Initialize Strands Agent (Powered by AWS Bedrock)
+// 3. Initialize Bedrock Model & Strands Agent
+const modelId = process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-sonnet-20241022-v2:0';
+const region = process.env.AWS_REGION || 'us-east-1';
+const apiKey = process.env.AWS_BEARER_TOKEN_BEDROCK || process.env.BEDROCK_API_KEY;
+
+const bedrockModel = new BedrockModel({
+  modelId,
+  region,
+  ...(apiKey ? { apiKey } : {})
+});
+
 const scamShieldAgent = new Agent({
+  model: bedrockModel,
   systemPrompt: `You are ScamShield AI, an autonomous cybersecurity investigation agent built for Hack Midwest 2026.
 Your role is to analyze suspicious text, emails (.eml files), SMS messages, invoices (.pdf), screenshots, attachments, and links for phishing, fraud, smishing, invoice scams, or credential harvesting.
 If any URL or link is present in the text or attached file, you MUST call the inspect_url tool to check it.
@@ -60,10 +71,17 @@ Produce an objective assessment with a danger score (0-100), risk level (CRITICA
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+  const hasAccessKey = Boolean(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
+  const hasBearerToken = Boolean(process.env.AWS_BEARER_TOKEN_BEDROCK || process.env.BEDROCK_API_KEY);
+  const bedrockReady = hasAccessKey || hasBearerToken;
+
   res.json({
     status: 'ok',
     agent: 'ScamShield Strands Agent',
-    bedrockReady: Boolean(process.env.AWS_ACCESS_KEY_ID || process.env.AWS_BEARER_TOKEN_BEDROCK)
+    bedrockReady,
+    region,
+    modelId,
+    credentialType: hasAccessKey ? 'IAM Access Key' : hasBearerToken ? 'Bearer Token' : 'None detected (create server/.env)'
   });
 });
 
@@ -171,8 +189,19 @@ app.post('/api/analyze', async (req, res) => {
     });
   } catch (error) {
     console.error('Strands Agent execution error:', error);
+
+    const isCredentialError = error.message && error.message.includes('Could not load credentials from any providers');
+    const isModelAccessError = error.message && (error.message.includes('AccessDeniedException') || error.message.includes('ResourceNotFoundException'));
+
+    let userMessage = error.message || 'Agent analysis failed.';
+    if (isCredentialError) {
+      userMessage = 'AWS Bedrock credentials not found. Please create server/.env and provide AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION=us-east-1 (or AWS_BEARER_TOKEN_BEDROCK). See server/.env.example.';
+    } else if (isModelAccessError) {
+      userMessage = `Bedrock model access required: Please enable Anthropic Claude in the AWS Bedrock Console (Bedrock > Model access) for region ${region}.`;
+    }
+
     res.status(500).json({
-      error: error.message || 'Agent analysis failed. Check AWS Bedrock credentials.'
+      error: userMessage
     });
   }
 });
