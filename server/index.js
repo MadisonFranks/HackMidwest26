@@ -329,6 +329,8 @@ app.post('/api/analyze', async (req, res) => {
       error: userMessage
     });
   }
+});
+
 // Expose endpoint to inspect threats stored in Amazon S3 Database
 app.get('/api/threats', async (req, res) => {
   try {
