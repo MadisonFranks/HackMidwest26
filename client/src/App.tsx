@@ -59,6 +59,18 @@ const rules: Finding[] = [
     pattern: /\b(bank|payment|funds|gift card|crypto|money|prize)\b/i,
     points: 10,
   },
+  {
+    label: 'Action Button / Hidden Link',
+    explanation: 'Directs you to click an action button or link, a primary technique used in phishing to conceal malicious destinations.',
+    pattern: /\b(click here|tap here|verify (your )?account|log ?in (to|now)|sign ?in (to|now)|update (your )?(payment|billing|card)|claim (your )?(reward|prize|funds)|cancel (your )?(order|subscription)|review (your )?activity|resolve (your )?issue|view (your )?invoice|download (your )?statement)\b/i,
+    points: 25,
+  },
+  {
+    label: 'Brand Impersonation Target',
+    explanation: 'Mentions a high-profile brand commonly impersonated in phishing and fake invoice schemes.',
+    pattern: /\b(geek squad|norton|mcafee|paypal|amazon|apple|microsoft|netflix|usps|fedex|dhl|chase|wells fargo|bank of america)\b/i,
+    points: 15,
+  },
 ]
 
 function getFileIcon(name: string) {

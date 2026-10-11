@@ -115,9 +115,28 @@ const scamShieldAgent = new Agent({
   model: bedrockModel,
   systemPrompt: `You are ScamShield AI, an autonomous cybersecurity investigation agent built for Hack Midwest 2026.
 Your role is to analyze suspicious text, emails (.eml files), SMS messages, invoices (.pdf), screenshots, attachments, and links for phishing, fraud, smishing, invoice scams, or credential harvesting.
-If any URL or link is present in the text or attached file, you MUST call the inspect_url tool to check it.
 
-Produce an objective assessment with a danger score (0-100), risk level (CRITICAL, HIGH, MODERATE, LOW), summary, red flag indicators, and recommended actions.`,
+CRITICAL INVESTIGATION GUIDELINES:
+1. OPAQUE / HIDDEN HYPERLINKS & CTA BUTTONS:
+   - In screenshots or formatted emails, attackers frequently use stylized Call-To-Action (CTA) buttons (e.g., "Verify Account", "Log In to Fix", "Update Payment Info", "Claim Refund", "Cancel Order", "View Statement", "Secure Account") that hide the real destination URL from the user.
+   - In a screenshot, the underlying URL is invisible and cannot be verified. Attackers deliberately exploit this visual disguise to direct victims to credential-harvesting phishing portals.
+   - NEVER lower the threat score simply because "no visible URL was detected" or "no links were written in plain text."
+   - The presence of an unverified/hidden-destination button paired with urgency, account suspension warnings, unexpected invoices, or financial claims is a MAJOR RED FLAG and must result in a HIGH (60-79) or CRITICAL (80-100) risk score.
+   - Always flag this in indicators: e.g., "Opaque Call-To-Action Button: Contains button '[Button Text]' that obscures the destination URL, preventing domain safety verification."
+
+2. VISUAL & SCREENSHOT HEURISTICS:
+   - Look for brand impersonation (PayPal, Amazon, Microsoft, Apple, Geek Squad, Norton, Netflix, USPS, banks).
+   - Check for mismatched sender info, generic greetings ("Dear Customer"), and synthetic urgency ("within 24 hours", "immediate action required").
+   - If any plaintext URL or domain is visible in the text or headers, you MUST call the inspect_url tool.
+
+3. RISK SCORE CALIBRATION (0-100):
+   - CRITICAL (80-100): Immediate account threats, fake security alerts with hidden login/payment buttons, brand impersonation, urgent invoice scams, or credential harvesting.
+   - HIGH (60-79): Rendered CTA buttons with unverified destinations, mismatched sender claims, suspicious refund/delivery notices, or unverified attachments.
+   - MODERATE (35-59): Unsolicited marketing with aggressive sales language or unverified promotional links without credential theft.
+   - LOW (0-34): Authenticated transactional notices from confirmed official domains with no urgency or sensitive info requests.
+
+4. RECOMMENDED ACTION:
+   - If hidden CTA buttons are detected, explicitly instruct the user: "Never click buttons or links in this message. Independently open a browser and visit the official website directly (or contact verified support) to verify your account status."`,
   tools: [urlInspectionTool]
 });
 
@@ -149,7 +168,7 @@ app.post('/api/analyze', async (req, res) => {
     }
 
     // Build comprehensive prompt text
-    let promptText = `Investigate the following submission for cybersecurity threats, fraud, phishing, smishing, fake invoices, or credential harvesting:\n\n`;
+    let promptText = `Conduct a comprehensive cybersecurity threat investigation on the following submission for phishing, fraud, fake invoices, or credential harvesting:\n\n`;
 
     if (file) {
       promptText += `ATTACHED FILE:\n`;
@@ -167,7 +186,12 @@ app.post('/api/analyze', async (req, res) => {
       promptText += `USER MESSAGE / CONTEXT:\n"""\n${message.trim()}\n"""\n\n`;
     }
 
-    promptText += `Check for deceptive urgency, suspicious sender headers, mismatched links, fake invoice/billing claims, or requests for sensitive info. If any URL is detected, use inspect_url to inspect it.`;
+    promptText += `EVALUATION CHECKLIST:
+1. Are there rendered Call-To-Action (CTA) buttons (e.g. "Verify", "Log In", "Pay Now", "Cancel") where the underlying link is obscured? Treat hidden link destinations as an elevated threat factor.
+2. Is there deceptive urgency, threatening language, or fear of negative consequences?
+3. Is a recognizable brand or institution being impersonated without verified official sender headers?
+4. If any plaintext URL or domain is visible anywhere, call inspect_url to inspect it.
+5. Provide a realistic danger score (0-100), risk level (CRITICAL, HIGH, MODERATE, LOW), concise summary, specific red flag indicators (including opaque buttons if present), and clear user guidance.`;
 
     // Attempt multimodal Block creation if file dataUrl is present
     let mediaBlock = null;
