@@ -52,10 +52,10 @@ const rules: Finding[] = [
     points: 20,
   },
   {
-    label: 'Personal Information Request',
-    explanation: 'This message may be trying to obtain sensitive information.',
-    pattern: /\b(password|verify your identity|security code|otp|social security)\b/i,
-    points: 20,
+    label: 'Credential Harvesting Attempt',
+    explanation: 'This message actively prompts you to provide or surrender passwords, PINs, or sensitive credentials.',
+    pattern: /\b(enter (your )?password|provide (your )?(ssn|social security)|reply with (your )?(code|otp|pin|password)|send (us )?(your )?(code|otp|pin|password)|enter (your )?pin)\b/i,
+    points: 30,
   },
   {
     label: 'Financial Language',
@@ -185,8 +185,61 @@ function App() {
     setAiResult(null)
     setAiError(null)
 
-    const detected = rules.filter((rule) => rule.pattern.test(combinedContent))
-    const total = Math.min(100, detected.reduce((sum, rule) => sum + rule.points, 0))
+    // 1. Detect legitimate MFA / Verification code delivery
+    const isLegitimateMfa =
+      /\b(your (verification|security|confirmation|one-time|login) code is|your (otp|pin) is|code: \d{4,8}|[0-9]{6} is your|use (code\s+)?[0-9]{4,8} to (verify|sign|log)|one-time password \(otp\))\b/i.test(combinedContent) &&
+      !/\b(reply (with|to this|your code)|send (us|this) code|call (us|our|this number|helpline)|text back)\b/i.test(combinedContent)
+
+    // 2. Detect verified corporate / organizational sender
+    const hasVerifiedSender =
+      /\bfrom:\s*[^<\n]*<?[a-z0-9._%+-]+@([a-z0-9-]+\.)*(google\.com|apple\.com|amazon\.com|microsoft\.com|github\.com|chase\.com|bankofamerica\.com|wellsfargo\.com|paypal\.com|netflix\.com|spotify\.com|uber\.com|linkedin\.com|slack\.com|zoom\.us|usps\.com)\b/i.test(combinedContent)
+
+    // 3. Detect major brand impersonation via public free webmail
+    const hasBrandOnFreeWebmail =
+      /\bfrom:\s*[^<\n]*<?[a-z0-9._%+-]+@(gmail\.com|yahoo\.com|hotmail\.com|outlook\.com|aol\.com)\b/i.test(combinedContent) &&
+      /\b(paypal|amazon|apple|microsoft|geek squad|norton|mcafee|chase|bank of america|wells fargo)\b/i.test(combinedContent)
+
+    const detected = rules.filter((rule) => {
+      // If it's standard MFA delivery, don't falsely penalize for urgency or credential harvesting
+      if (isLegitimateMfa && (rule.label === 'Urgent Language' || rule.label === 'Credential Harvesting Attempt' || rule.label === 'Action Button / Hidden Link')) {
+        return false
+      }
+      return rule.pattern.test(combinedContent)
+    })
+
+    if (hasBrandOnFreeWebmail) {
+      detected.unshift({
+        label: 'Brand Impersonation via Free Webmail',
+        explanation: 'Claims to represent an established brand but was sent from a free consumer email address (@gmail.com, @yahoo.com). High probability of fraud.',
+        pattern: /@/i,
+        points: 40,
+      })
+    }
+
+    if (isLegitimateMfa) {
+      detected.push({
+        label: 'Legitimate Verification Code (MFA)',
+        explanation: 'Standard automated delivery of a one-time login or security passcode. No requests to share the code or call fake support lines were detected.',
+        pattern: /code/i,
+        points: 0,
+      })
+    }
+
+    if (hasVerifiedSender) {
+      detected.push({
+        label: 'Verified Organization Sender',
+        explanation: 'Message originates from an authenticated official company domain.',
+        pattern: /from/i,
+        points: 0,
+      })
+    }
+
+    let total = Math.min(100, detected.reduce((sum, rule) => sum + rule.points, 0))
+
+    // If verified legitimate sender or genuine MFA and no brand spoofing:
+    if ((hasVerifiedSender || isLegitimateMfa) && !hasBrandOnFreeWebmail) {
+      total = Math.min(total, 15) // Safe baseline
+    }
 
     setFindings(detected)
     setScore(total)
