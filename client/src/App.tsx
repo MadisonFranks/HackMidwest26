@@ -17,6 +17,10 @@ type StrandsAiResult = {
   indicators: string[]
   recommendedAction: string
   poweredBy?: string
+  s3ThreatVault?: {
+    bucket: string
+    archived: boolean
+  }
 }
 
 type UploadedFile = {
@@ -529,6 +533,12 @@ ScamShield Protection Team (Spoofed)`,
                 <li>Report suspicious messages when appropriate.</li>
               </ul>
             )}
+
+            {aiResult?.s3ThreatVault?.archived && (
+              <div className="s3-vault-notice">
+                <span>🗄️ Threat cataloged in Amazon S3 Threat Intelligence Vault</span>
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -538,7 +548,7 @@ ScamShield Protection Team (Spoofed)`,
         <div className="aws-icon">☁️</div>
         <div>
           <h4>AWS Strands Investigation Agent</h4>
-          <p>Autonomous agent with URL inspection tools running on Amazon Bedrock.</p>
+          <p>Autonomous agent with URL inspection & Amazon S3 Threat Vault memory.</p>
         </div>
         <span className="status-pill">LIVE</span>
       </section>

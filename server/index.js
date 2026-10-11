@@ -5,10 +5,14 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { Agent, tool, DocumentBlock, ImageBlock, TextBlock, BedrockModel } from '@strands-agents/sdk';
 import { z } from 'zod';
+import { initS3ThreatVault, queryThreatVault, archiveThreatToS3 } from './s3ThreatVault.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
 dotenv.config();
+
+// Initialize Amazon S3 Threat Intelligence Vault
+initS3ThreatVault();
 
 const app = express();
 app.use(cors());
@@ -48,6 +52,23 @@ const urlInspectionTool = tool({
       });
     } catch {
       return JSON.stringify({ error: 'Malformed or unparseable URL.' });
+    }
+  }
+});
+
+// 2b. Strands Agent Tool: Cross-reference with Amazon S3 Threat Intelligence Vault
+const threatVaultTool = tool({
+  name: 'query_s3_threat_vault',
+  description: 'Queries the ScamShield Amazon S3 Threat Intelligence Vault to check if a domain, brand name, phone number, sender email, or scam phrase matches previously cataloged scam campaigns',
+  inputSchema: z.object({
+    query: z.string().describe('The domain name, brand, phone number, or suspicious phrase to cross-reference against past scam data')
+  }),
+  callback: async ({ query }) => {
+    try {
+      const matchData = await queryThreatVault(query);
+      return JSON.stringify(matchData);
+    } catch (err) {
+      return JSON.stringify({ error: 'Threat vault lookup temporarily unavailable', matched: false });
     }
   }
 });
@@ -136,8 +157,11 @@ CRITICAL INVESTIGATION GUIDELINES:
    - LOW (0-34): Authenticated transactional notices from confirmed official domains with no urgency or sensitive info requests.
 
 4. RECOMMENDED ACTION:
-   - If hidden CTA buttons are detected, explicitly instruct the user: "Never click buttons or links in this message. Independently open a browser and visit the official website directly (or contact verified support) to verify your account status."`,
-  tools: [urlInspectionTool]
+   - If hidden CTA buttons are detected, explicitly instruct the user: "Never click buttons or links in this message. Independently open a browser and visit the official website directly (or contact verified support) to verify your account status."
+
+5. AMAZON S3 THREAT INTELLIGENCE VAULT:
+   - If any domain, brand, phone number, or suspicious sender is present, call query_s3_threat_vault to check if this threat matches cataloged past campaigns in the ScamShield database.`,
+  tools: [urlInspectionTool, threatVaultTool]
 });
 
 // Health check endpoint
@@ -150,6 +174,8 @@ app.get('/api/health', (req, res) => {
     bedrockReady,
     region,
     modelId,
+    s3VaultReady: hasIamKeys,
+    s3Bucket: process.env.S3_BUCKET_NAME || 'scamshield-threat-vault-070780358311',
     credentialType: hasIamKeys
       ? 'AWS IAM Access Key (SigV4)'
       : rawKey
@@ -190,8 +216,9 @@ app.post('/api/analyze', async (req, res) => {
 1. Are there rendered Call-To-Action (CTA) buttons (e.g. "Verify", "Log In", "Pay Now", "Cancel") where the underlying link is obscured? Treat hidden link destinations as an elevated threat factor.
 2. Is there deceptive urgency, threatening language, or fear of negative consequences?
 3. Is a recognizable brand or institution being impersonated without verified official sender headers?
-4. If any plaintext URL or domain is visible anywhere, call inspect_url to inspect it.
-5. Provide a realistic danger score (0-100), risk level (CRITICAL, HIGH, MODERATE, LOW), concise summary, specific red flag indicators (including opaque buttons if present), and clear user guidance.`;
+4. If a domain, brand name, sender email, or phone number is present, call query_s3_threat_vault to check if it matches known attacks in our Amazon S3 threat database.
+5. If any plaintext URL or domain is visible anywhere, call inspect_url to inspect it.
+6. Provide a realistic danger score (0-100), risk level (CRITICAL, HIGH, MODERATE, LOW), concise summary, specific red flag indicators (including opaque buttons if present), and clear user guidance.`;
 
     // Attempt multimodal Block creation if file dataUrl is present
     let mediaBlock = null;
@@ -261,9 +288,22 @@ app.post('/api/analyze', async (req, res) => {
       }
     }
 
+    // Automatically archive verified threats to Amazon S3 for adaptive learning
+    const shouldArchive = (parsedData.score || 0) >= 35;
+    if (shouldArchive) {
+      archiveThreatToS3({
+        ...parsedData,
+        sampleText: [message, file?.name, file?.content].filter(Boolean).join('\n\n')
+      }).catch((err) => console.warn('Background S3 archiving error:', err.message));
+    }
+
     res.json({
       ...parsedData,
-      poweredBy: 'AWS Strands Agents SDK'
+      poweredBy: 'AWS Strands Agents SDK',
+      s3ThreatVault: {
+        bucket: process.env.S3_BUCKET_NAME || 'scamshield-threat-vault-070780358311',
+        archived: shouldArchive
+      }
     });
   } catch (error) {
     console.error('Strands Agent execution error:', error);
