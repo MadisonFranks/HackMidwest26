@@ -77,13 +77,9 @@ const rules: Finding[] = [
   },
 ]
 
-function getFileIcon(name: string) {
-  const ext = name.split('.').pop()?.toLowerCase() || ''
-  if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) return '🖼️'
-  if (['pdf'].includes(ext)) return '📄'
-  if (['eml', 'msg'].includes(ext)) return '✉️'
-  if (['html', 'htm'].includes(ext)) return '🌐'
-  return '📝'
+function getFileTag(name: string) {
+  const ext = name.split('.').pop()?.toUpperCase() || 'FILE'
+  return ext.slice(0, 4)
 }
 
 function formatFileSize(bytes: number) {
@@ -330,7 +326,7 @@ ScamShield Protection Team (Spoofed)`,
       <section className="analyzer">
         <div className="section-heading">
           <div>
-            <h3>🔍 Scam Analyzer</h3>
+            <h3>Scam Analyzer</h3>
             <p>Paste or highlight suspicious content</p>
           </div>
         </div>
@@ -350,7 +346,7 @@ ScamShield Protection Team (Spoofed)`,
         {/* File Attachment Dropzone or Preview */}
         {uploadedFile ? (
           <div className="file-preview-card">
-            <span className="file-preview-icon">{getFileIcon(uploadedFile.name)}</span>
+            <span className="file-preview-badge">{getFileTag(uploadedFile.name)}</span>
             <div className="file-preview-details">
               <div className="file-preview-name">{uploadedFile.name}</div>
               <div className="file-preview-meta">
@@ -395,7 +391,9 @@ ScamShield Protection Team (Spoofed)`,
               }}
               accept=".eml,.msg,.txt,.html,.htm,.json,.pdf,.png,.jpg,.jpeg,.webp,.csv,.log"
             />
-            <span className="dropzone-icon">📎</span>
+            <svg className="dropzone-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
             <div className="dropzone-text">
               <strong>Attach suspicious file or screenshot</strong>
               <span>Drop .eml, .pdf, .txt, .png, .jpg or click to browse (up to 15MB)</span>
@@ -411,9 +409,9 @@ ScamShield Protection Team (Spoofed)`,
             disabled={(!message.trim() && !uploadedFile) || isAiAnalyzing || isAnalyzing}
           >
             {isAiAnalyzing ? (
-              <span className="spinner-text">⏳ Strands Agent Investigating...</span>
+              <span className="spinner-text">Strands Agent Investigating...</span>
             ) : (
-              '🤖 AWS Strands Deep Scan →'
+              'AWS Strands Deep Scan →'
             )}
           </button>
 
@@ -425,7 +423,7 @@ ScamShield Protection Team (Spoofed)`,
                 (!message.trim() && !uploadedFile?.content) || isAiAnalyzing || isAnalyzing
               }
             >
-              {isAnalyzing ? 'Scanning...' : '⚡ Quick Rule Check'}
+              {isAnalyzing ? 'Scanning...' : 'Quick Rule Check'}
             </button>
 
             <button className="secondary-button" onClick={loadExample}>
@@ -442,7 +440,7 @@ ScamShield Protection Team (Spoofed)`,
       {/* Error Banner */}
       {aiError && (
         <div className="error-banner">
-          <div className="error-icon">⚠️</div>
+          <div className="error-icon">!</div>
           <div>
             <strong>Agent Connection Notice</strong>
             <p>{aiError}</p>
@@ -454,7 +452,7 @@ ScamShield Protection Team (Spoofed)`,
       {score !== null && (
         <section className="results">
           <div className="section-heading">
-            <h3>📊 Investigation Results</h3>
+            <h3>Investigation Results</h3>
             {aiResult && (
               <span className="badge-ai">Powered by AWS Strands Agents SDK</span>
             )}
@@ -480,14 +478,14 @@ ScamShield Protection Team (Spoofed)`,
           {/* AI Summary Verdict if available */}
           {aiResult && (
             <div className="ai-verdict-box">
-              <h4>🧠 Agent Verdict</h4>
+              <h4>Agent Verdict</h4>
               <p>{aiResult.summary}</p>
             </div>
           )}
 
           {/* Warning Indicators */}
           <div className="findings-section">
-            <h4>⚠️ Warning Indicators</h4>
+            <h4>Warning Indicators</h4>
 
             {aiResult ? (
               aiResult.indicators.length === 0 ? (
@@ -520,7 +518,7 @@ ScamShield Protection Team (Spoofed)`,
 
           {/* Safety Recommendations */}
           <div className="safety">
-            <h4>✅ Recommended Action</h4>
+            <h4>Recommended Action</h4>
             {aiResult ? (
               <div className="ai-action-box">
                 <p>{aiResult.recommendedAction}</p>
@@ -536,7 +534,7 @@ ScamShield Protection Team (Spoofed)`,
 
             {aiResult?.s3ThreatVault?.archived && (
               <div className="s3-vault-notice">
-                <span>🗄️ Threat cataloged in Amazon S3 Threat Intelligence Vault</span>
+                <span>Threat cataloged in Amazon S3 Threat Intelligence Vault</span>
               </div>
             )}
           </div>
@@ -545,9 +543,9 @@ ScamShield Protection Team (Spoofed)`,
 
       {/* AWS Integration Card */}
       <section className="aws-section active">
-        <div className="aws-icon">☁️</div>
+        <span className="aws-brand-badge">AWS</span>
         <div>
-          <h4>AWS Strands Investigation Agent</h4>
+          <h4>Strands Investigation Agent</h4>
           <p>Autonomous agent with URL inspection & Amazon S3 Threat Vault memory.</p>
         </div>
         <span className="status-pill">LIVE</span>
