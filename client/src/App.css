@@ -1,20 +1,30 @@
-/* ScamShield AI - Chrome Extension Styles */
+/* ScamShield AI - Chrome Extension & Full Webpage Styles */
 
 .app {
   width: 100%;
-  margin: 0;
+  min-height: 100vh;
+  margin: 0 auto;
   padding: 16px;
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: #1e293b;
   background: #ffffff;
   text-align: left;
+  display: flex;
+  flex-direction: column;
 }
 
 @media (prefers-color-scheme: dark) {
   .app {
     color: #f1f5f9;
-    background: #0f172a;
+    background: #0b0f19;
+  }
+}
+
+@media (min-width: 768px) {
+  .app {
+    max-width: 1160px;
+    padding: 24px 32px;
   }
 }
 
@@ -23,13 +33,50 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 12px;
+  padding-bottom: 14px;
   border-bottom: 1px solid #e2e8f0;
 }
 
 @media (prefers-color-scheme: dark) {
   .header {
-    border-bottom-color: #334155;
+    border-bottom-color: #1e293b;
+  }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.expand-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.expand-button:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.45);
+}
+
+@media (prefers-color-scheme: dark) {
+  .expand-button {
+    color: #a5b4fc;
+    background: rgba(99, 102, 241, 0.15);
+    border-color: rgba(99, 102, 241, 0.35);
+  }
+  .expand-button:hover {
+    background: rgba(99, 102, 241, 0.25);
   }
 }
 
@@ -80,9 +127,35 @@
   display: inline-block;
 }
 
+/* Responsive Main Grid Layout */
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  flex: 1;
+}
+
+.content-col {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .main-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    align-items: start;
+    margin-top: 10px;
+    margin-bottom: 20px;
+  }
+}
+
 /* Welcome Section */
 .welcome {
-  margin: 14px 0 16px;
+  margin: 10px 0 16px;
 }
 
 .welcome-badge {
@@ -691,6 +764,127 @@ textarea:focus {
 
 .safety li {
   margin-bottom: 3px;
+}
+
+/* Idle Overview Card (Desktop Full Webpage Mode) */
+.idle-overview-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+@media (prefers-color-scheme: dark) {
+  .idle-overview-card {
+    background: #111827;
+    border-color: #1f2937;
+  }
+}
+
+@media (max-width: 767px) {
+  .idle-overview-card {
+    display: none;
+  }
+}
+
+.overview-header .overview-tag {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+
+.overview-header h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 6px;
+  color: inherit;
+}
+
+.overview-header p {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.feature-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .feature-item {
+    background: #1e293b;
+    border-color: #334155;
+  }
+}
+
+.feature-item strong {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: inherit;
+  margin-bottom: 4px;
+}
+
+.feature-item p {
+  font-size: 10px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.quick-start-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: rgba(99, 102, 241, 0.06);
+  border: 1px dashed rgba(99, 102, 241, 0.3);
+  font-size: 12px;
+  color: #475569;
+}
+
+@media (prefers-color-scheme: dark) {
+  .quick-start-box {
+    background: rgba(99, 102, 241, 0.1);
+    color: #94a3b8;
+  }
+}
+
+.inline-example-button {
+  background: #6366f1;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.inline-example-button:hover {
+  background: #4f46e5;
 }
 
 /* AWS Section Card */

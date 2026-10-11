@@ -63,6 +63,13 @@ async function getThreatIndex() {
 }
 
 /**
+ * Get all cataloged threats from S3
+ */
+export async function getAllThreats() {
+  return await getThreatIndex();
+}
+
+/**
  * Query S3 threat vault for matching domains, brands, or keywords
  */
 export async function queryThreatVault(query) {

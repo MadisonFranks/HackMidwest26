@@ -277,6 +277,14 @@ ScamShield Protection Team (Spoofed)`,
     }
   }
 
+  function openInNewTab() {
+    if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
+      chrome.tabs.create({ url: chrome.runtime.getURL('index.html') })
+    } else {
+      window.open(window.location.href, '_blank')
+    }
+  }
+
   const effectiveRiskLevel = aiResult
     ? aiResult.riskLevel
     : score === null
@@ -307,20 +315,36 @@ ScamShield Protection Team (Spoofed)`,
           </h1>
           <p>Browser Security Assistant</p>
         </div>
-        <div className="status">
-          <span className="status-dot"></span>
-          Ready
+        <div className="header-actions">
+          <div className="status">
+            <span className="status-dot"></span>
+            Ready
+          </div>
+          <button
+            type="button"
+            className="expand-button"
+            onClick={openInNewTab}
+            title="Open ScamShield in full browser tab"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+            </svg>
+            <span>Full Page</span>
+          </button>
         </div>
       </header>
 
-      {/* Welcome */}
-      <section className="welcome">
-        <div className="welcome-badge">HACK MIDWEST 2026</div>
-        <h2>
-          Stay one step ahead <span>of scams.</span>
-        </h2>
-        <p>Analyze suspicious emails, text messages, and links using autonomous AI security agents.</p>
-      </section>
+      {/* Main Responsive Layout */}
+      <main className="main-content">
+        <div className="content-col left-col">
+          {/* Welcome */}
+          <section className="welcome">
+            <div className="welcome-badge">HACK MIDWEST 2026</div>
+            <h2>
+              Stay one step ahead <span>of scams.</span>
+            </h2>
+            <p>Analyze suspicious emails, text messages, and links using autonomous AI security agents.</p>
+          </section>
 
       {/* Analyzer */}
       <section className="analyzer">
@@ -448,8 +472,20 @@ ScamShield Protection Team (Spoofed)`,
         </div>
       )}
 
-      {/* Results Section */}
-      {score !== null && (
+      {/* AWS Integration Card */}
+      <section className="aws-section active">
+        <span className="aws-brand-badge">AWS</span>
+        <div>
+          <h4>Strands Investigation Agent</h4>
+          <p>Autonomous agent with URL inspection & Amazon S3 Threat Vault memory.</p>
+        </div>
+        <span className="status-pill">LIVE</span>
+      </section>
+    </div>
+
+    <div className="content-col right-col">
+      {/* Results Section or Idle Overview */}
+      {score !== null ? (
         <section className="results">
           <div className="section-heading">
             <h3>Investigation Results</h3>
@@ -539,17 +575,41 @@ ScamShield Protection Team (Spoofed)`,
             )}
           </div>
         </section>
-      )}
-
-      {/* AWS Integration Card */}
-      <section className="aws-section active">
-        <span className="aws-brand-badge">AWS</span>
-        <div>
-          <h4>Strands Investigation Agent</h4>
-          <p>Autonomous agent with URL inspection & Amazon S3 Threat Vault memory.</p>
+      ) : (
+        <div className="idle-overview-card">
+          <div className="overview-header">
+            <span className="overview-tag">ACTIVE CAPABILITIES</span>
+            <h3>Threat Intelligence Console</h3>
+            <p>ScamShield autonomously correlates multi-modal inputs against emerging cyber attack campaigns.</p>
+          </div>
+          <div className="feature-grid">
+            <div className="feature-item">
+              <strong>Hidden Link & Button Heuristics</strong>
+              <p>Uncovers credential-theft phishing portals disguised behind opaque CTA buttons.</p>
+            </div>
+            <div className="feature-item">
+              <strong>Amazon S3 Threat Vault</strong>
+              <p>Cross-references domains and phone numbers against cataloged scam campaigns.</p>
+            </div>
+            <div className="feature-item">
+              <strong>Multi-Modal Ingestion</strong>
+              <p>Inspects .eml emails, PDF invoices, and raw screenshots via Amazon Bedrock.</p>
+            </div>
+            <div className="feature-item">
+              <strong>Autonomous Strands Tools</strong>
+              <p>Executes live URL structure inspection and real-time threat intelligence queries.</p>
+            </div>
+          </div>
+          <div className="quick-start-box">
+            <span>Want to test the agent?</span>
+            <button type="button" className="inline-example-button" onClick={loadExample}>
+              Load Sample Threat
+            </button>
+          </div>
         </div>
-        <span className="status-pill">LIVE</span>
-      </section>
+      )}
+    </div>
+  </main>
 
       {/* Footer */}
       <footer className="footer">

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { Agent, tool, DocumentBlock, ImageBlock, TextBlock, BedrockModel } from '@strands-agents/sdk';
 import { z } from 'zod';
-import { initS3ThreatVault, queryThreatVault, archiveThreatToS3 } from './s3ThreatVault.js';
+import { initS3ThreatVault, queryThreatVault, archiveThreatToS3, getAllThreats } from './s3ThreatVault.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -328,6 +328,19 @@ app.post('/api/analyze', async (req, res) => {
     res.status(500).json({
       error: userMessage
     });
+  }
+// Expose endpoint to inspect threats stored in Amazon S3 Database
+app.get('/api/threats', async (req, res) => {
+  try {
+    const threats = await getAllThreats();
+    res.json({
+      bucket: process.env.S3_BUCKET_NAME || 'scamshield-threat-vault-070780358311',
+      region: process.env.AWS_REGION || 'us-east-1',
+      count: threats.length,
+      threats
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
