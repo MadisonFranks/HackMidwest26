@@ -55,7 +55,10 @@ const MAX_FILE_SIZE = 20 * 1024 * 1024
 const MAX_TEXT_LENGTH = 1_000_000
 const MAX_PDF_PAGES = 100
 const MAX_AI_CHARACTERS = 12000
-const API_URL = 'http://127.0.0.1:3001/api/analyze'
+
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  'http://127.0.0.1:3001/api/analyze'
 
 function getRiskLabel(score: number) {
   if (score >= 60) return { text: 'HIGH RISK', className: 'high' }
@@ -143,6 +146,32 @@ async function extractPdfText(
   }
 }
 
+async function extractImageText(
+  file: File,
+  onProgress: (status: string) => void
+): Promise<string> {
+  onProgress('Preparing picture for text recognition...')
+
+  const worker = await createWorker('eng')
+
+  try {
+    onProgress('Reading text from your picture...')
+
+    const result = await worker.recognize(file)
+    const text = result.data.text.trim()
+
+    if (!text) {
+      throw new Error(
+        'No readable text was found in this picture. Try a clearer image.'
+      )
+    }
+
+    return text
+  } finally {
+    await worker.terminate()
+  }
+}
+
 async function extractFileText(
   file: File,
   onProgress: (status: string) => void
@@ -157,7 +186,16 @@ async function extractFileText(
     return extractPdfText(file, onProgress)
   }
 
-  throw new Error('Please upload a PDF, TXT, or EML file.')
+  if (
+    ['png', 'jpg', 'jpeg', 'webp'].includes(extension ?? '') ||
+    ['image/png', 'image/jpeg', 'image/webp'].includes(file.type)
+  ) {
+    return extractImageText(file, onProgress)
+  }
+
+  throw new Error(
+    'Please upload a PDF, TXT, EML, PNG, JPG, JPEG, or WebP file.'
+  )
 }
 
 function extractAiText(payload: unknown): string {
@@ -211,7 +249,6 @@ function extractAiText(payload: unknown): string {
   return JSON.stringify(payload, null, 2)
 }
 
-// Clean up AWS explanations and format bold headings.
 function formatAiAnalysis(text: string) {
   const cleaned = text
     .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
@@ -282,6 +319,12 @@ function App() {
     setAiError('')
   }
 
+  function clearFileInputs() {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
   function handleMessageChange(value: string) {
     setMessage(value)
     resetResults()
@@ -289,10 +332,7 @@ function App() {
     if (uploadedFile) {
       setUploadedFile(null)
       setFileStatus('')
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
+      clearFileInputs()
     }
   }
 
@@ -305,9 +345,24 @@ function App() {
     resetResults()
 
     const extension = file.name.split('.').pop()?.toLowerCase()
+    const isImage = ['image/png', 'image/jpeg', 'image/webp'].includes(
+      file.type
+    )
 
-    if (!['pdf', 'txt', 'eml'].includes(extension ?? '')) {
-      setFileError('Please choose a PDF, TXT, or EML file.')
+    const supportedExtension = [
+      'pdf',
+      'txt',
+      'eml',
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+    ].includes(extension ?? '')
+
+    if (!supportedExtension && !isImage) {
+      setFileError(
+        'Please choose a PDF, TXT, EML, PNG, JPG, JPEG, or WebP file.'
+      )
       setUploadedFile(null)
       event.target.value = ''
       return
@@ -327,21 +382,27 @@ function App() {
       const text = await extractFileText(file, setFileStatus)
 
       if (!text.replace(/--- Page \d+ ---/g, '').trim()) {
-        throw new Error('No readable text was found. Try a clearer scanned PDF.')
+        throw new Error(
+          'No readable text was found. Try a clearer document or picture.'
+        )
       }
 
       if (text.length > MAX_TEXT_LENGTH) {
-        throw new Error('This document contains more than 1 million characters.')
+        throw new Error(
+          'This document contains more than 1 million characters.'
+        )
       }
 
       setMessage(text)
       setUploadedFile(file)
-      setFileStatus('Document text extracted successfully. Ready to analyze.')
+      setFileStatus('Text extracted successfully. Ready to analyze.')
     } catch (error) {
       setUploadedFile(null)
       setFileStatus('')
       setFileError(
-        error instanceof Error ? error.message : 'Unable to read this file.'
+        error instanceof Error
+          ? error.message
+          : 'Unable to read this file.'
       )
     } finally {
       setIsReadingFile(false)
@@ -354,10 +415,7 @@ function App() {
     setFileError('')
     setFileStatus('')
     resetResults()
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
+    clearFileInputs()
   }
 
   async function analyzeMessage() {
@@ -437,10 +495,7 @@ function App() {
     setFileError('')
     setFileStatus('')
     resetResults()
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
+    clearFileInputs()
   }
 
   function clearMessage() {
@@ -449,10 +504,7 @@ function App() {
     setFileError('')
     setFileStatus('')
     resetResults()
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
+    clearFileInputs()
 
     if (typeof chrome !== 'undefined' && chrome.storage?.local) {
       chrome.storage.local.remove('selectedMessage')
@@ -487,8 +539,8 @@ function App() {
         </h2>
 
         <p>
-          Check suspicious messages, emails, links, and documents before
-          trusting them.
+          Check suspicious messages, emails, links, pictures, and
+          documents before trusting them.
         </p>
       </section>
 
@@ -516,31 +568,41 @@ function App() {
 
         <div className="section-heading">
           <span>02</span>
-          <h3>Upload a suspicious file</h3>
+          <h3>Upload a suspicious file or picture</h3>
         </div>
 
         <div className="upload-box">
           <div className="upload-icon">📄</div>
-          <h3>Choose a document to scan</h3>
-          <p>PDF, TXT, or EML • Up to 20 MB • Scanned PDFs supported</p>
+          <h3>Choose a document or picture to scan</h3>
+          <p>
+            PDF, TXT, EML, PNG, JPG, JPEG, or WebP • Up to 20 MB
+          </p>
 
           <input
             ref={fileInputRef}
             id="scam-file-upload"
             type="file"
-            accept=".pdf,.txt,.eml"
+            accept=".pdf,.txt,.eml,.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
             onChange={handleFileUpload}
             className="file-input"
             disabled={isReadingFile || isAnalyzing}
           />
 
-          <label htmlFor="scam-file-upload" className="upload-button">
-            Choose File
+          <label
+            htmlFor="scam-file-upload"
+            className="upload-button"
+          >
+            Choose File or Picture
           </label>
         </div>
 
-        {fileStatus && <p className="file-status">{fileStatus}</p>}
-        {fileError && <p className="file-error">{fileError}</p>}
+        {fileStatus && (
+          <p className="file-status">{fileStatus}</p>
+        )}
+
+        {fileError && (
+          <p className="file-error">{fileError}</p>
+        )}
 
         {uploadedFile && (
           <div className="uploaded-file">
@@ -548,7 +610,9 @@ function App() {
               <span>📎</span>
               <div>
                 <strong>{uploadedFile.name}</strong>
-                <small>{(uploadedFile.size / 1024).toFixed(1)} KB</small>
+                <small>
+                  {(uploadedFile.size / 1024).toFixed(1)} KB
+                </small>
               </div>
             </div>
 
@@ -650,11 +714,12 @@ function App() {
 
           <div className="safety">
             <h3>Recommended Safety Actions</h3>
-
             <ul>
               <li>Do not click unfamiliar links.</li>
               <li>Never share passwords or verification codes.</li>
-              <li>Verify the sender using an official website or phone number.</li>
+              <li>
+                Verify the sender using an official website or phone number.
+              </li>
               <li>Report suspicious messages when appropriate.</li>
             </ul>
           </div>
@@ -685,7 +750,7 @@ function App() {
 
           {aiError && (
             <p className="file-error" style={{ marginTop: 12 }}>
-              {aiError}. Make sure the local backend is running.
+              {aiError}
             </p>
           )}
 
