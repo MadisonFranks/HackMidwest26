@@ -1,20 +1,39 @@
 {
   "manifest_version": 3,
   "name": "ScamShield AI",
-  "version": "1.0.0",
-  "description": "An AI-powered browser extension that helps identify suspicious messages and scams.",
+  "version": "1.1.0",
+  "description": "An AI-powered browser security assistant that automatically detects and analyzes suspicious emails, links, and scams using AWS Bedrock and Amazon S3.",
   "action": {
     "default_popup": "index.html",
     "default_title": "Open ScamShield AI"
   },
   "permissions": [
     "storage",
-    "contextMenus"
+    "contextMenus",
+    "activeTab",
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
-    "http://localhost:5001/*"
+    "http://localhost:5001/*",
+    "https://mail.google.com/*",
+    "https://outlook.live.com/*",
+    "https://outlook.office.com/*",
+    "https://mail.yahoo.com/*"
   ],
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://mail.google.com/*",
+        "https://outlook.live.com/*",
+        "https://outlook.office.com/*",
+        "https://mail.yahoo.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
 }

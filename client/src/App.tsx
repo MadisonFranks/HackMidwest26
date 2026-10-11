@@ -98,6 +98,7 @@ function App() {
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false)
   const [aiResult, setAiResult] = useState<StrandsAiResult | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
+  const [detectStatus, setDetectStatus] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -242,6 +243,36 @@ function App() {
     setAiError(null)
   }
 
+  function autoDetectFromTab() {
+    if (typeof chrome !== 'undefined' && chrome.tabs?.query) {
+      setDetectStatus('Checking active tab for open email...')
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tab = tabs[0]
+        if (!tab?.id) {
+          setDetectStatus('No active tab found.')
+          setTimeout(() => setDetectStatus(null), 3000)
+          return
+        }
+
+        chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_EMAIL_NOW' }, (response) => {
+          if (chrome.runtime.lastError || !response?.success || !response?.data?.hasEmail) {
+            setDetectStatus('No open email found in this tab. Open an email in Gmail or Outlook first.')
+            setTimeout(() => setDetectStatus(null), 3500)
+          } else {
+            const data = response.data
+            setMessage(data.fullText || data.bodyText)
+            setDetectStatus(`Extracted email: "${data.subject || 'Active email'}"`)
+            resetAnalysis()
+            setTimeout(() => setDetectStatus(null), 4000)
+          }
+        })
+      })
+    } else {
+      setDetectStatus('Tab auto-detection runs inside the Chrome extension.')
+      setTimeout(() => setDetectStatus(null), 3500)
+    }
+  }
+
   function loadExample() {
     setMessage(
       'URGENT: Suspicious Invoice #94821 attached. Please review the updated wire transfer details or your subscription will be cancelled.'
@@ -351,9 +382,25 @@ ScamShield Protection Team (Spoofed)`,
         <div className="section-heading">
           <div>
             <h3>Scam Analyzer</h3>
-            <p>Paste or highlight suspicious content</p>
+            <p>Paste or auto-detect suspicious content</p>
           </div>
+          <button
+            type="button"
+            className="auto-detect-btn"
+            onClick={autoDetectFromTab}
+            title="Auto-detect open email from active tab (Gmail / Outlook)"
+          >
+            <span>🛡️</span>
+            <span>Auto-Detect Email</span>
+          </button>
         </div>
+
+        {detectStatus && (
+          <div className="detect-status-banner">
+            <span>🛡️</span>
+            <span>{detectStatus}</span>
+          </div>
+        )}
 
         <textarea
           placeholder="Paste suspicious text, email, SMS, or link here..."
