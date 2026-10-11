@@ -78,8 +78,8 @@ const senderAndMfaVerificationTool = tool({
   name: 'verify_sender_and_mfa',
   description: 'Verifies whether a sender email or domain belongs to a verified authentic organization, and checks if a message is a legitimate Multi-Factor Authentication (MFA / 2FA / OTP) code delivery',
   inputSchema: z.object({
-    sender: z.string().optional().describe('The sender email or domain address (e.g. no-reply@accounts.google.com, accountprotection.microsoft.com, support@apple-security.xyz)'),
-    messageSnippet: z.string().optional().describe('A snippet of the message to analyze for MFA/OTP legitimacy')
+    sender: z.string().default('').describe('The sender email or domain address if found, or empty string'),
+    messageSnippet: z.string().default('').describe('A snippet of the message text to analyze for MFA, or empty string')
   }),
   callback: async ({ sender, messageSnippet }) => {
     try {
@@ -332,6 +332,15 @@ CRITICAL INVESTIGATION GUIDELINES:
   tools: [urlInspectionTool, threatVaultTool, senderAndMfaVerificationTool]
 });
 
+// Resilient direct analysis agent (fallback if model produces invalid tool call sequence)
+const directAnalysisAgent = new Agent({
+  model: bedrockModel,
+  systemPrompt: `You are ScamShield AI, an autonomous cybersecurity investigation agent built for Hack Midwest 2026.
+Your role is to analyze suspicious text, emails, SMS messages, invoices, screenshots, attachments, and links for phishing, fraud, smishing, invoice scams, or credential harvesting.
+Assess sender domain authenticity, recognize legitimate Multi-Factor Authentication (MFA / 2FA / OTP) codes as low risk (0-15) unless attempting code theft, and output structured threat analysis.`,
+  tools: []
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   const bedrockReady = hasIamKeys || Boolean(rawKey);
@@ -422,22 +431,41 @@ app.post('/api/analyze', async (req, res) => {
     }
 
     let result;
-    if (mediaBlock) {
-      try {
+    const isMultimodal = Boolean(mediaBlock);
+
+    try {
+      if (isMultimodal) {
         result = await scamShieldAgent.invoke(
           [new TextBlock(promptText), mediaBlock],
           { structuredOutputSchema: analysisSchema }
         );
-      } catch (invokeError) {
-        console.warn('Multimodal invoke encountered an issue, falling back to text prompt:', invokeError.message);
+      } else {
         result = await scamShieldAgent.invoke(promptText, {
           structuredOutputSchema: analysisSchema
         });
       }
-    } else {
-      result = await scamShieldAgent.invoke(promptText, {
-        structuredOutputSchema: analysisSchema
-      });
+    } catch (agentError) {
+      const errStr = (agentError.message || '') + ' ' + (agentError.name || '');
+      const isToolSeqError =
+        errStr.includes('invalid sequence as part of ToolUse') ||
+        errStr.includes('ModelStreamErrorException') ||
+        errStr.includes('ValidationException');
+
+      if (isToolSeqError) {
+        console.warn('⚠️ ToolUse sequence anomaly detected in Bedrock stream. Executing direct analysis fallback...');
+        try {
+          result = await directAnalysisAgent.invoke(promptText, {
+            structuredOutputSchema: analysisSchema
+          });
+        } catch (fallbackError) {
+          console.warn('Structured fallback issue. Executing raw JSON prompt fallback...');
+          result = await directAnalysisAgent.invoke(
+            `${promptText}\n\nIMPORTANT INSTRUCTION: Respond ONLY with a valid JSON object matching: {"score": <number 0-100>, "riskLevel": "CRITICAL"|"HIGH"|"MODERATE"|"LOW", "summary": "<string>", "indicators": ["<string>"], "recommendedAction": "<string>"}`
+          );
+        }
+      } else {
+        throw agentError;
+      }
     }
 
     let parsedData = result.structuredOutput;
@@ -456,6 +484,10 @@ app.post('/api/analyze', async (req, res) => {
           recommendedAction: 'Carefully verify the sender and attachments.'
         };
       }
+    }
+
+    if (!parsedData.summary || typeof parsedData.summary !== 'string' || !parsedData.summary.trim()) {
+      parsedData.summary = `Autonomous investigation completed. Threat risk assessed at ${parsedData.score}/100 (${parsedData.riskLevel}).`;
     }
 
     // Automatically archive verified threats to Amazon S3 for adaptive learning
@@ -517,6 +549,14 @@ app.get('/api/threats', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🛡️  ScamShield Strands Agent API listening on http://localhost:${PORT}`);
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`⚠️ Port ${PORT} is already in use by another process. If you have another terminal running the server, stop it or run: npx kill-port ${PORT}`);
+  } else {
+    console.error('Server error:', err);
+  }
 });
