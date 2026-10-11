@@ -354,3 +354,4 @@
   observer.observe(document.body, { childList: true, subtree: true });
   setTimeout(ensureFloatingButton, 1000);
 })();
+
