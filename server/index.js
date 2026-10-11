@@ -53,24 +53,36 @@ const urlInspectionTool = tool({
 });
 
 // 3. Initialize Bedrock Model & Strands Agent
-let rawKey = process.env.AWS_BEARER_TOKEN_BEDROCK ||
-             process.env.BEDROCK_API_KEY ||
-             process.env.BedrockAPIKEY ||
-             process.env.AWS_API_KEY;
+const hasIamKeys = Boolean(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
 
-if (rawKey) {
-  rawKey = rawKey.trim();
-  // Ensure the required 'bedrock-api-key-' prefix is present if it's a Bedrock API Key
-  if (rawKey.startsWith('YmVk') && !rawKey.startsWith('bedrock-api-key-')) {
-    rawKey = `bedrock-api-key-${rawKey}`;
+let rawKey = null;
+if (!hasIamKeys) {
+  rawKey = process.env.AWS_BEARER_TOKEN_BEDROCK ||
+           process.env.BEDROCK_API_KEY ||
+           process.env.BedrockAPIKEY ||
+           process.env.AWS_API_KEY;
+
+  if (rawKey) {
+    rawKey = rawKey.trim();
+    // Ensure the required 'bedrock-api-key-' prefix is present if it's a Bedrock API Key
+    if (rawKey.startsWith('YmVk') && !rawKey.startsWith('bedrock-api-key-')) {
+      rawKey = `bedrock-api-key-${rawKey}`;
+    }
   }
 }
 
-const modelId = process.env.BEDROCK_MODEL_ID || 'us.anthropic.claude-3-5-sonnet-20241022-v2:0';
+const modelId = process.env.BEDROCK_MODEL_ID || 'us.amazon.nova-lite-v1:0';
 const region = process.env.AWS_REGION || 'us-east-1';
 
 const clientConfig = {};
-if (rawKey && !process.env.AWS_ACCESS_KEY_ID) {
+if (hasIamKeys) {
+  // Explicitly supply AWS IAM credentials (SigV4 signing)
+  clientConfig.credentials = {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID.trim(),
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY.trim(),
+    ...(process.env.AWS_SESSION_TOKEN ? { sessionToken: process.env.AWS_SESSION_TOKEN.trim() } : {})
+  };
+} else if (rawKey) {
   // Supply dummy credentials to prevent AWS SDK SigV4 signer from erroring before bearer auth
   clientConfig.credentials = {
     accessKeyId: 'anonymous',
@@ -85,8 +97,8 @@ const bedrockModel = new BedrockModel({
   ...(Object.keys(clientConfig).length > 0 ? { clientConfig } : {})
 });
 
-// If using Bearer token, remove duplicate SigV4 Authorization header to prevent HTTP/2 conflict
-if (rawKey) {
+// If using Bearer token (and not standard IAM keys), remove duplicate SigV4 Authorization header
+if (rawKey && !hasIamKeys) {
   bedrockModel._client.middlewareStack.add((next) => async (args) => {
     delete args.request.headers['Authorization'];
     delete args.request.headers['authorization'];
@@ -111,9 +123,7 @@ Produce an objective assessment with a danger score (0-100), risk level (CRITICA
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  const hasAccessKey = Boolean(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
-  const hasBearerToken = Boolean(rawKey);
-  const bedrockReady = hasAccessKey || hasBearerToken;
+  const bedrockReady = hasIamKeys || Boolean(rawKey);
 
   res.json({
     status: 'ok',
@@ -121,7 +131,11 @@ app.get('/api/health', (req, res) => {
     bedrockReady,
     region,
     modelId,
-    credentialType: hasAccessKey ? 'IAM Access Key' : hasBearerToken ? 'Bearer Token (API Key)' : 'None detected (check server/.env)'
+    credentialType: hasIamKeys
+      ? 'AWS IAM Access Key (SigV4)'
+      : rawKey
+      ? 'Bearer Token (API Key)'
+      : 'None detected (check server/.env)'
   });
 });
 
@@ -230,14 +244,21 @@ app.post('/api/analyze', async (req, res) => {
   } catch (error) {
     console.error('Strands Agent execution error:', error);
 
-    const isCredentialError = error.message && error.message.includes('Could not load credentials from any providers');
-    const isModelAccessError = error.message && (error.message.includes('AccessDeniedException') || error.message.includes('ResourceNotFoundException'));
+    const errorMessage = error.message || '';
+    const isCredentialError = errorMessage.includes('Could not load credentials from any providers');
+    const isIamPermissionError = errorMessage.includes('is not authorized to perform: bedrock:') || errorMessage.includes('no identity-based policy allows');
+    const isEolError = errorMessage.includes('end of its life');
+    const isModelAccessError = errorMessage.includes('AccessDeniedException') || errorMessage.includes('ResourceNotFoundException');
 
-    let userMessage = error.message || 'Agent analysis failed.';
+    let userMessage = errorMessage || 'Agent analysis failed.';
     if (isCredentialError) {
-      userMessage = 'AWS Bedrock credentials not found. Please create server/.env and provide AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION=us-east-1 (or AWS_BEARER_TOKEN_BEDROCK). See server/.env.example.';
+      userMessage = 'AWS Bedrock credentials not found. Please create server/.env and provide AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION=us-east-1. See server/.env.example.';
+    } else if (isIamPermissionError) {
+      userMessage = `AWS IAM Permission Missing: The IAM user/role is missing Bedrock permissions. In AWS IAM Console, attach 'AmazonBedrockFullAccess' (or grant bedrock:InvokeModel and bedrock:InvokeModelWithResponseStream) to your IAM user.`;
+    } else if (isEolError) {
+      userMessage = `Bedrock model version expired: Set BEDROCK_MODEL_ID=us.amazon.nova-lite-v1:0 (or an active model) in server/.env.`;
     } else if (isModelAccessError) {
-      userMessage = `Bedrock model access required: Please enable Anthropic Claude in the AWS Bedrock Console (Bedrock > Model access) for region ${region}.`;
+      userMessage = `Bedrock model access required: Please enable model access in the AWS Bedrock Console (Bedrock > Model access) for region ${region}.`;
     }
 
     res.status(500).json({
