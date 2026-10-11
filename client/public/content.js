@@ -13,6 +13,7 @@
     let sender = '';
     let bodyText = '';
     let links = [];
+    let hasVerifiedCheckmark = false;
 
     if (hostname.includes('mail.google.com')) {
       // Gmail extraction
@@ -27,6 +28,13 @@
         const email = senderEl.getAttribute('email');
         const name = senderEl.getAttribute('name') || senderEl.innerText.trim();
         sender = email ? `${name} <${email}>` : name;
+
+        // Check for Gmail / BIMI Verified Checkmark next to sender
+        const senderContainer = senderEl.closest('.gE') || senderEl.closest('h3') || senderEl.parentElement;
+        const verifiedBadge =
+          senderContainer?.querySelector('[data-tooltip*="verified" i], [aria-label*="verified" i], [data-tooltip*="bimi" i], svg[aria-label*="verified" i], img[alt*="verified" i]') ||
+          document.querySelector('.gE [data-tooltip*="verified" i], .gE [aria-label*="verified" i], [data-tooltip*="Google has verified that the sender" i]');
+        hasVerifiedCheckmark = Boolean(verifiedBadge);
       }
 
       const bodyElements = document.querySelectorAll('.a3s.aiL');
@@ -35,7 +43,7 @@
         const activeBody = bodyElements[bodyElements.length - 1];
         bodyText = activeBody.innerText.trim();
 
-        // Extract suspicious links
+        // Extract links
         const anchorTags = activeBody.querySelectorAll('a[href]');
         links = Array.from(anchorTags)
           .map((a) => a.href)
@@ -53,6 +61,9 @@
         document.querySelector('[aria-label*="From:"]') ||
         document.querySelector('div[role="region"] [aria-label*="From"]');
       sender = senderEl ? senderEl.innerText.trim() : '';
+
+      const verifiedBadge = document.querySelector('[aria-label*="verified" i], [title*="verified" i]');
+      hasVerifiedCheckmark = Boolean(verifiedBadge);
 
       const bodyEl =
         document.querySelector('[aria-label="Message body"]') ||
@@ -76,22 +87,50 @@
       }
     }
 
-    const uniqueLinks = Array.from(new Set(links)).slice(0, 5);
+    const uniqueLinks = Array.from(new Set(links)).slice(0, 10);
+
+    // Extract sender domain to classify official vs external links
+    const senderEmailMatch = sender.match(/@([a-z0-9.-]+\.[a-z]{2,})/i);
+    const senderDomain = (senderEmailMatch ? senderEmailMatch[1] : '').toLowerCase();
+
+    const officialLinks = [];
+    const externalLinks = [];
+
+    uniqueLinks.forEach((link) => {
+      try {
+        const parsed = new URL(link);
+        if (senderDomain && (parsed.hostname === senderDomain || parsed.hostname.endsWith(`.${senderDomain}`))) {
+          officialLinks.push(link);
+        } else {
+          externalLinks.push(link);
+        }
+      } catch {
+        externalLinks.push(link);
+      }
+    });
+
     const fullText = [
       subject ? `Subject: ${subject}` : '',
       sender ? `From: ${sender}` : '',
+      hasVerifiedCheckmark
+        ? `Platform Verification Status: [VERIFIED SENDER] Confirmed official blue verification checkmark badge present next to sender.`
+        : '',
       bodyText ? `Message Body:\n${bodyText}` : '',
-      uniqueLinks.length > 0 ? `Links Found:\n${uniqueLinks.join('\n')}` : ''
+      officialLinks.length > 0 ? `Official Platform Links (Matching Verified Domain):\n${officialLinks.slice(0, 5).join('\n')}` : '',
+      externalLinks.length > 0 ? `External / Third-Party Links:\n${externalLinks.slice(0, 5).join('\n')}` : ''
     ]
       .filter(Boolean)
       .join('\n\n');
 
     return {
       hasEmail: Boolean(bodyText && bodyText.length > 20),
+      hasVerifiedCheckmark,
       subject,
       sender,
       bodyText,
       links: uniqueLinks,
+      officialLinks,
+      externalLinks,
       fullText
     };
   }
@@ -202,7 +241,8 @@
           payload: {
             message: emailData.fullText,
             subject: emailData.subject,
-            sender: emailData.sender
+            sender: emailData.sender,
+            hasVerifiedCheckmark: Boolean(emailData.hasVerifiedCheckmark)
           }
         },
         (response) => {
@@ -279,6 +319,16 @@
       </div>
 
       <div style="padding: 16px; max-height: 480px; overflow-y: auto;">
+        ${
+          emailData.hasVerifiedCheckmark
+            ? `
+          <div style="display: flex; align-items: center; gap: 6px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); padding: 5px 10px; border-radius: 6px; margin-bottom: 12px; font-size: 11px; color: #38bdf8; font-weight: 600;">
+            <span style="font-size: 13px;">✓</span>
+            <span>Platform Verified Sender (Blue Checkmark Confirmed)</span>
+          </div>
+          `
+            : ''
+        }
         <!-- Score Bar -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <div>

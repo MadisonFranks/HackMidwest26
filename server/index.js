@@ -41,6 +41,23 @@ const urlInspectionTool = tool({
       const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(parsed.hostname);
       const hasSuspiciousTld = /\.(xyz|top|work|click|loan|info|tk|gq|cf|buzz|country|kim|stream|gdn|mom|rest|live|fit|bar|cam)$/i.test(parsed.hostname);
 
+      const isTrustedDomain = [
+        'linkedin.com', 'google.com', 'apple.com', 'amazon.com', 'microsoft.com',
+        'github.com', 'indeed.com', 'glassdoor.com', 'ziprecruiter.com', 'greenhouse.io',
+        'lever.co', 'workday.com', 'chase.com', 'paypal.com'
+      ].some((d) => parsed.hostname === d || parsed.hostname.endsWith(`.${d}`));
+
+      if (isTrustedDomain) {
+        return JSON.stringify({
+          hostname: parsed.hostname,
+          protocol: parsed.protocol,
+          isTrustedPlatform: true,
+          isIpAddress: false,
+          hasSuspiciousTld: false,
+          warning: 'Authenticated official company/platform domain. Standard legitimate link.'
+        });
+      }
+
       return JSON.stringify({
         hostname: parsed.hostname,
         protocol: parsed.protocol,
@@ -76,16 +93,18 @@ const threatVaultTool = tool({
 // 2c. Strands Agent Tool: Verify Sender Domain & MFA / Verification Code Authenticity
 const senderAndMfaVerificationTool = tool({
   name: 'verify_sender_and_mfa',
-  description: 'Verifies whether a sender email or domain belongs to a verified authentic organization, and checks if a message is a legitimate Multi-Factor Authentication (MFA / 2FA / OTP) code delivery',
+  description: 'Verifies whether a sender email or domain belongs to a verified authentic organization (e.g. LinkedIn, Google, Apple), checks if email client displays a verified checkmark badge, and evaluates job listings and Multi-Factor Authentication (MFA) codes',
   inputSchema: z.object({
     sender: z.string().default('').describe('The sender email or domain address if found, or empty string'),
-    messageSnippet: z.string().default('').describe('A snippet of the message text to analyze for MFA, or empty string')
+    messageSnippet: z.string().default('').describe('A snippet of the message text to analyze for MFA or job listings, or empty string'),
+    hasVerifiedCheckmark: z.boolean().default(false).describe('True if email client displays an official blue verified checkmark / BIMI badge')
   }),
-  callback: async ({ sender, messageSnippet }) => {
+  callback: async ({ sender, messageSnippet, hasVerifiedCheckmark }) => {
     try {
       const result = {
         senderAnalysis: null,
-        mfaAnalysis: null
+        mfaAnalysis: null,
+        jobAnalysis: null
       };
 
       // 1. Sender Domain Analysis
@@ -121,6 +140,12 @@ const senderAndMfaVerificationTool = tool({
           'spotify.com': 'Spotify',
           'uber.com': 'Uber',
           'linkedin.com': 'LinkedIn',
+          'indeed.com': 'Indeed',
+          'glassdoor.com': 'Glassdoor',
+          'ziprecruiter.com': 'ZipRecruiter',
+          'greenhouse.io': 'Greenhouse ATS',
+          'lever.co': 'Lever ATS',
+          'workday.com': 'Workday',
           'discord.com': 'Discord',
           'slack.com': 'Slack',
           'zoom.us': 'Zoom',
@@ -215,6 +240,39 @@ const senderAndMfaVerificationTool = tool({
         }
       }
 
+      // 3. Job Listing & Recruitment Analysis
+      const snippetLower = (messageSnippet || '').toLowerCase();
+      const isJobRelated = /\b(job alert|job opening|actively recruiting|cyber security|engineer|analyst|hiring|recruitment|position|manage alerts|see all jobs)\b/i.test(snippetLower);
+
+      if (isJobRelated) {
+        const isOfficialJobPlatform = ['linkedin.com', 'indeed.com', 'glassdoor.com', 'ziprecruiter.com', 'greenhouse.io', 'lever.co'].some(
+          (p) => domain === p || domain.endsWith(`.${p}`)
+        );
+
+        // Scam indicators for fake job recruitment
+        const hasExaggeratedPay = /\$([5-9][0-9]|[1-9][0-9]{2,})\s*(?:\/|\s*per\s*)(?:hr|hour)\b|\b(?:5000|10000)\s*(?:\/|\s*per\s*)(?:week|month)\b/i.test(snippetLower);
+        const hasOffPlatformInterview = /\b(telegram|whatsapp|signal)\b/i.test(snippetLower);
+        const hasCheckOrEquipmentScam = /\b(check for (equipment|home office)|purchase equipment|approved vendor|send you a check)\b/i.test(snippetLower);
+        const hasUnsolicitedHiring = /\b(hired immediately|no interview required|congratulations you are hired)\b/i.test(snippetLower);
+
+        if (hasVerifiedCheckmark || isOfficialJobPlatform) {
+          result.jobAnalysis = {
+            isVerifiedJobAlert: true,
+            hasVerifiedCheckmark: Boolean(hasVerifiedCheckmark),
+            platform: verifiedOrg || 'Verified Career Platform',
+            guidance: `Official Job Alert from verified career platform (${verifiedOrg || 'LinkedIn'}). The email has an authentic verified checkmark and/or originates from the official platform domain. Links to job openings (e.g. linkedin.com/comm/jobs) are normal notification links and must NOT be flagged as suspicious. Rate this legitimate job digest as LOW RISK (0-15).`
+          };
+        } else if (hasExaggeratedPay || hasOffPlatformInterview || hasCheckOrEquipmentScam || hasUnsolicitedHiring || freeWebmailImpersonation) {
+          result.jobAnalysis = {
+            isJobScam: true,
+            hasExaggeratedPay,
+            hasOffPlatformInterview,
+            hasCheckOrEquipmentScam,
+            guidance: `Recruitment / Job Scam detected: Contains classic fake job scam tactics (unrealistic pay rate, off-platform interview on Telegram/WhatsApp, fake check for equipment, or free webmail recruiter). Rate as HIGH (70-89) or CRITICAL (90-100) risk.`
+          };
+        }
+      }
+
       return JSON.stringify(result);
     } catch (err) {
       return JSON.stringify({ error: err.message });
@@ -305,29 +363,42 @@ CRITICAL INVESTIGATION GUIDELINES:
    - CALIBRATION: Legitimate automated MFA/OTP deliveries without social engineering traps MUST be scored as LOW RISK (0-15).
    - ONLY flag an MFA message as HIGH/CRITICAL if it is an MFA Interception Scam (e.g. asking the victim to reply with their code or call a fake fraud helpline).
 
-3. OPAQUE / HIDDEN HYPERLINKS & CTA BUTTONS:
+3. JOB LISTINGS & RECRUITMENT EMAILS (VERIFIED CHECKMARK & SENDER RECOGNITION):
+   - You MUST check whether the email sender has a verified checkmark (e.g. Google BIMI / platform badge) or originates from a verified career platform (e.g. @linkedin.com, @indeed.com, @glassdoor.com, @greenhouse.io, @lever.co).
+   - VERIFIED JOB ALERT DIGESTS: Platforms like LinkedIn send job alert digests ("Your job alert for cyber security analyst", "Incident Response Engineer at Piper Companies", "Sony Interactive Entertainment").
+   - Internal platform tracking links matching the sender platform (e.g. linkedin.com/comm/jobs/view/..., linkedin.com/jobs/...) are normal platform notification links, NOT suspicious links!
+   - If an email is an official job alert digest from a verified platform (especially with a verified checkmark), rate it as LOW RISK (0-15). NEVER report official platform links as "suspicious links"!
+   - RECRUITMENT & JOB SCAMS: Conversely, flag as HIGH (70-89) or CRITICAL (90-100) if an email exhibits true employment scam tactics:
+     * Exaggerated or unrealistic pay rates (e.g. $50-$100+/hr for simple data entry with no experience, $5,000/week).
+     * Asking the applicant to interview or message via Telegram, WhatsApp, or Signal.
+     * Sending a check to purchase home office equipment or software from an "approved vendor".
+     * Purporting to represent an established brand (Sony, Piper, Google, Amazon) from a free personal email address (@gmail.com, @yahoo.com).
+     * Unsolicited hiring without any interview ("Congratulations, you are hired immediately").
+
+4. OPAQUE / HIDDEN HYPERLINKS & CTA BUTTONS:
    - In screenshots or formatted emails, attackers frequently use stylized Call-To-Action (CTA) buttons (e.g., "Verify Account", "Log In to Fix", "Update Payment Info", "Claim Refund", "Cancel Order", "View Statement", "Secure Account") that hide the real destination URL from the user.
    - In a screenshot, the underlying URL is invisible and cannot be verified. Attackers deliberately exploit this visual disguise to direct victims to credential-harvesting phishing portals.
    - NEVER lower the threat score simply because "no visible URL was detected" or "no links were written in plain text."
    - The presence of an unverified/hidden-destination button paired with urgency, account suspension warnings, unexpected invoices, or financial claims is a MAJOR RED FLAG and must result in a HIGH (60-79) or CRITICAL (80-100) risk score.
    - Always flag this in indicators: e.g., "Opaque Call-To-Action Button: Contains button '[Button Text]' that obscures the destination URL, preventing domain safety verification."
 
-4. VISUAL & SCREENSHOT HEURISTICS:
+5. VISUAL & SCREENSHOT HEURISTICS:
    - Look for brand impersonation (PayPal, Amazon, Microsoft, Apple, Geek Squad, Norton, Netflix, USPS, banks).
    - Check for mismatched sender info, generic greetings ("Dear Customer"), and synthetic urgency ("within 24 hours", "immediate action required").
    - If any plaintext URL or domain is visible in the text or headers, you MUST call the inspect_url tool.
 
-5. RISK SCORE CALIBRATION (0-100):
-   - CRITICAL (80-100): Immediate account threats, fake security alerts with hidden login/payment buttons, brand impersonation via free webmail/lookalike domains, urgent invoice scams, or credential/MFA harvesting.
-   - HIGH (60-79): Rendered CTA buttons with unverified destinations, mismatched sender claims, suspicious refund/delivery notices, or unverified attachments.
+6. RISK SCORE CALIBRATION (0-100):
+   - CRITICAL (80-100): Immediate account threats, fake security alerts with hidden login/payment buttons, brand impersonation via free webmail/lookalike domains, urgent invoice scams, recruitment fake-check/telegram scams, or credential/MFA harvesting.
+   - HIGH (60-79): Rendered CTA buttons with unverified destinations, mismatched sender claims, suspicious refund/delivery notices, unverified attachments, or recruitment scams with exaggerated pay.
    - MODERATE (35-59): Unsolicited marketing with aggressive sales language or unverified promotional links without credential theft.
-   - LOW (0-34): Authenticated transactional notices from confirmed official domains, routine shipping/receipt emails, and legitimate automated MFA/OTP verification code deliveries.
+   - LOW (0-34): Authenticated transactional notices from confirmed official domains, verified LinkedIn/Indeed job alert digests with official links, and legitimate automated MFA/OTP verification code deliveries.
 
-6. RECOMMENDED ACTION:
+7. RECOMMENDED ACTION:
    - If hidden CTA buttons are detected, explicitly instruct the user: "Never click buttons or links in this message. Independently open a browser and visit the official website directly (or contact verified support) to verify your account status."
    - If legitimate MFA is detected: "This appears to be a legitimate one-time passcode. Never share this code with anyone over phone or email."
+   - If legitimate verified job alert: "This is an authentic job digest from a verified career platform. Use the official links to view or apply for openings directly."
 
-7. AMAZON S3 THREAT INTELLIGENCE VAULT:
+8. AMAZON S3 THREAT INTELLIGENCE VAULT:
    - If any domain, brand, phone number, or suspicious sender is present, call query_s3_threat_vault to check if this threat matches cataloged past campaigns in the ScamShield database.`,
   tools: [urlInspectionTool, threatVaultTool, senderAndMfaVerificationTool]
 });
@@ -337,7 +408,7 @@ const directAnalysisAgent = new Agent({
   model: bedrockModel,
   systemPrompt: `You are ScamShield AI, an autonomous cybersecurity investigation agent built for Hack Midwest 2026.
 Your role is to analyze suspicious text, emails, SMS messages, invoices, screenshots, attachments, and links for phishing, fraud, smishing, invoice scams, or credential harvesting.
-Assess sender domain authenticity, recognize legitimate Multi-Factor Authentication (MFA / 2FA / OTP) codes as low risk (0-15) unless attempting code theft, and output structured threat analysis.`,
+Assess sender domain authenticity, recognize verified platform checkmarks and authentic job alert digests (e.g. LinkedIn, Indeed) as low risk (0-15) unless exhibiting recruitment scams (exaggerated pay, Telegram interviews, fake checks), recognize legitimate Multi-Factor Authentication (MFA / 2FA / OTP) codes as low risk (0-15), and output structured threat analysis.`,
   tools: []
 });
 
@@ -364,14 +435,22 @@ app.get('/api/health', (req, res) => {
 // Main Analysis Endpoint (Supports text and files)
 app.post('/api/analyze', async (req, res) => {
   try {
-    const { message, file } = req.body;
+    const { message, file, hasVerifiedCheckmark } = req.body;
 
     if ((!message || typeof message !== 'string' || !message.trim()) && !file) {
       return res.status(400).json({ error: 'Either message text or an uploaded file is required' });
     }
 
     // Build comprehensive prompt text
-    let promptText = `Conduct a comprehensive cybersecurity threat investigation on the following submission for phishing, fraud, fake invoices, or credential harvesting:\n\n`;
+    let promptText = `Conduct a comprehensive cybersecurity threat investigation on the following submission for phishing, fraud, fake invoices, recruitment scams, or credential harvesting:\n\n`;
+
+    const isVerifiedSenderPresent = Boolean(
+      hasVerifiedCheckmark || (message && /\[VERIFIED SENDER\]/i.test(message))
+    );
+
+    if (isVerifiedSenderPresent) {
+      promptText += `PLATFORM VERIFICATION BADGE:\n- Verified Checkmark Badge: CONFIRMED (Official blue verified checkmark / BIMI verified sender icon detected in email client next to sender).\n\n`;
+    }
 
     if (file) {
       promptText += `ATTACHED FILE:\n`;
@@ -390,10 +469,11 @@ app.post('/api/analyze', async (req, res) => {
     }
 
     promptText += `EVALUATION CHECKLIST:
-1. SENDER DOMAIN & LEGITIMACY: If a sender email, domain, or company name is present, call verify_sender_and_mfa to check if the sender is authenticated under an official corporate domain or is a spoofed lookalike / free webmail impersonation.
-2. MULTI-FACTOR AUTHENTICATION (MFA / OTP): If the message delivers a one-time verification code/passcode (with standard advisories like "expires in 10 minutes" or "do not share this code"), verify whether it is standard automated MFA delivery. Legitimate MFA codes with no phishing links or reply demands are normal security mechanisms and MUST be rated as LOW RISK (0-15).
-3. OPAQUE CALL-TO-ACTION (CTA) BUTTONS: Are there rendered CTA buttons (e.g. "Verify", "Log In", "Pay Now", "Cancel") where the underlying link is obscured? Treat hidden link destinations as an elevated threat factor.
-4. THREATENING LANGUAGE & SYNTHETIC URGENCY: Is there deceptive urgency, threatening language, or fear of negative consequences?
+1. SENDER DOMAIN & VERIFIED CHECKMARK: Call verify_sender_and_mfa with sender and checkmark status. If sender has a verified checkmark or originates from an authentic platform (e.g. @linkedin.com, @google.com, @apple.com), treat as an authenticated sender.
+2. JOB LISTINGS & CAREER ALERTS: If this is an official job alert digest (such as LinkedIn Job Alerts) from a verified sender, links pointing to the official platform (e.g. linkedin.com/comm/jobs) are normal notification links, NOT phishing links. Score legitimate job digests as LOW RISK (0-15).
+   - Only flag as a job scam (HIGH/CRITICAL) if the message exhibits fake job scam tactics: exaggerated pay ($60-$100/hr data entry), off-platform interviews on Telegram/WhatsApp, fake check for home office equipment, or free webmail recruiter.
+3. MULTI-FACTOR AUTHENTICATION (MFA / OTP): If the message delivers a one-time verification passcode (with standard notes like "expires in 10 minutes" or "do not share this code"), recognize standard automated MFA as LOW RISK (0-15).
+4. OPAQUE CALL-TO-ACTION (CTA) BUTTONS: Are there rendered CTA buttons where the underlying link is obscured? Treat hidden link destinations as an elevated threat factor.
 5. S3 THREAT VAULT & URL CHECKS:
    - Call query_s3_threat_vault if any domain, brand, phone number, or suspicious sender is present to match past cataloged attacks.
    - Call inspect_url on any visible plaintext URLs or domain structures.

@@ -75,6 +75,12 @@ const rules: Finding[] = [
     pattern: /\b(geek squad|norton|mcafee|paypal|amazon|apple|microsoft|netflix|usps|fedex|dhl|chase|wells fargo|bank of america)\b/i,
     points: 15,
   },
+  {
+    label: 'Recruitment / Job Scam Indicators',
+    explanation: 'Contains suspicious hiring tactics such as exaggerated pay ($60-$100+/hr), interviews on Telegram/WhatsApp, or equipment check offers.',
+    pattern: /\b(\$([5-9][0-9]|[1-9][0-9]{2,})\s*(?:\/|\s*per\s*)(?:hr|hour)|5000\s*(?:\/|\s*per\s*)week|interview (on|via) (telegram|whatsapp|signal)|check for (home office|equipment)|purchase equipment from our (approved )?vendor)\b/i,
+    points: 40,
+  },
 ]
 
 function getFileTag(name: string) {
@@ -199,9 +205,22 @@ function App() {
       /\bfrom:\s*[^<\n]*<?[a-z0-9._%+-]+@(gmail\.com|yahoo\.com|hotmail\.com|outlook\.com|aol\.com)\b/i.test(combinedContent) &&
       /\b(paypal|amazon|apple|microsoft|geek squad|norton|mcafee|chase|bank of america|wells fargo)\b/i.test(combinedContent)
 
+    // 4. Detect verified career platform / job alert
+    const isVerifiedJobPlatform =
+      (/\b(linkedin\.com|indeed\.com|glassdoor\.com|ziprecruiter\.com)\b/i.test(combinedContent) || /\[VERIFIED SENDER\]/i.test(combinedContent)) &&
+      /\b(job alert|job opening|actively recruiting|cyber security|engineer|analyst|position|manage alerts|see all jobs)\b/i.test(combinedContent) &&
+      !hasBrandOnFreeWebmail
+
+    const hasJobScamTactic =
+      /\b(\$([5-9][0-9]|[1-9][0-9]{2,})\s*(?:\/|\s*per\s*)(?:hr|hour)|5000\s*(?:\/|\s*per\s*)week|interview (on|via) (telegram|whatsapp|signal)|check for (home office|equipment)|purchase equipment from our vendor)\b/i.test(combinedContent)
+
     const detected = rules.filter((rule) => {
       // If it's standard MFA delivery, don't falsely penalize for urgency or credential harvesting
       if (isLegitimateMfa && (rule.label === 'Urgent Language' || rule.label === 'Credential Harvesting Attempt' || rule.label === 'Action Button / Hidden Link')) {
+        return false
+      }
+      // If it's a verified career platform job alert without scam tactics, don't penalize platform links or buttons
+      if (isVerifiedJobPlatform && !hasJobScamTactic && (rule.label === 'Unverified Link' || rule.label === 'Action Button / Hidden Link')) {
         return false
       }
       return rule.pattern.test(combinedContent)
@@ -234,10 +253,19 @@ function App() {
       })
     }
 
+    if (isVerifiedJobPlatform && !hasJobScamTactic) {
+      detected.push({
+        label: 'Verified Career Platform (Job Alert)',
+        explanation: 'Official job alert digest from an authenticated career platform (e.g. LinkedIn). Destination links lead to legitimate job postings.',
+        pattern: /job/i,
+        points: 0,
+      })
+    }
+
     let total = Math.min(100, detected.reduce((sum, rule) => sum + rule.points, 0))
 
-    // If verified legitimate sender or genuine MFA and no brand spoofing:
-    if ((hasVerifiedSender || isLegitimateMfa) && !hasBrandOnFreeWebmail) {
+    // If verified legitimate sender, verified job platform, or genuine MFA and no brand spoofing:
+    if ((hasVerifiedSender || isLegitimateMfa || isVerifiedJobPlatform) && !hasBrandOnFreeWebmail && !hasJobScamTactic) {
       total = Math.min(total, 15) // Safe baseline
     }
 
@@ -259,6 +287,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: message.trim(),
+          hasVerifiedCheckmark: /\[VERIFIED SENDER\]/i.test(message),
           file: uploadedFile
             ? {
                 name: uploadedFile.name,
