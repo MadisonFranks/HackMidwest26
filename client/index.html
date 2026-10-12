@@ -5,6 +5,20 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ScamShield AI</title>
+    <script>
+      (function() {
+        try {
+          var params = new URLSearchParams(window.location.search);
+          var isFull = params.get('mode') === 'full' || params.get('mode') === 'web';
+          var isExt = params.get('mode') === 'extension' || params.get('ext') === '1' || (window.location.protocol === 'chrome-extension:' && !isFull);
+          if (isExt) {
+            document.documentElement.classList.add('extension-popup-mode');
+          } else {
+            document.documentElement.classList.add('full-screen-mode');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

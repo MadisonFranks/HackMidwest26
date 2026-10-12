@@ -7,8 +7,6 @@
 
 html,
 body {
-  width: 100%;
-  min-height: 100vh;
   margin: 0;
   padding: 0;
   background: #ffffff;
@@ -18,7 +16,6 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -29,12 +26,44 @@ body {
   }
 }
 
-#root {
+/* Extension Popup Mode: Fixes Chrome toolbar popup window sizing */
+html.extension-popup-mode,
+html.extension-popup-mode body {
+  width: 440px;
+  min-width: 440px;
+  max-width: 440px;
+  min-height: 580px;
+  height: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+html.extension-popup-mode #root {
+  width: 440px;
+  min-width: 440px;
+  max-width: 440px;
+  min-height: 580px;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Full Screen Web Mode: Full viewport with stationary sidebar & scrolling content */
+html.full-screen-mode,
+html.full-screen-mode body,
+html:not(.extension-popup-mode),
+html:not(.extension-popup-mode) body {
   width: 100%;
+  height: 100%;
   min-height: 100vh;
-  margin: 0;
-  padding: 0;
-  border: none;
+  overflow: hidden;
+}
+
+html.full-screen-mode #root,
+html:not(.extension-popup-mode) #root {
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }

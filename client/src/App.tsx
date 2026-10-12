@@ -509,6 +509,21 @@ function App() {
     ? 'scanner'
     : activeView
 
+  // Synchronize layout mode classes for Chrome extension popup vs full-screen tab
+  useEffect(() => {
+    if (isExtensionMode) {
+      document.documentElement.classList.add('extension-popup-mode')
+      document.documentElement.classList.remove('full-screen-mode')
+      document.body.classList.add('extension-popup-mode')
+      document.body.classList.remove('full-screen-mode')
+    } else {
+      document.documentElement.classList.remove('extension-popup-mode')
+      document.documentElement.classList.add('full-screen-mode')
+      document.body.classList.remove('extension-popup-mode')
+      document.body.classList.add('full-screen-mode')
+    }
+  }, [isExtensionMode])
+
   // Fetch S3 Threat Vault database index (skipped in lightweight extension mode)
   useEffect(() => {
     if (isExtensionMode) return
