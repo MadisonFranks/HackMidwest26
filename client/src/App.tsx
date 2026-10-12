@@ -11,9 +11,9 @@ function ShieldIcon({ size = 18, className = '', style }: { size?: number; class
   )
 }
 
-function GlobeIcon({ size = 18, className = '' }: { size?: number; className?: string }) {
+function GlobeIcon({ size = 18, className = '', style }: { size?: number; className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} style={style} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
       <line x1="2" y1="12" x2="22" y2="12" />
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
@@ -21,9 +21,9 @@ function GlobeIcon({ size = 18, className = '' }: { size?: number; className?: s
   )
 }
 
-function VaultIcon({ size = 18, className = '' }: { size?: number; className?: string }) {
+function VaultIcon({ size = 18, className = '', style }: { size?: number; className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} style={style} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <ellipse cx="12" cy="5" rx="9" ry="3" />
       <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
       <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
@@ -31,29 +31,46 @@ function VaultIcon({ size = 18, className = '' }: { size?: number; className?: s
   )
 }
 
-function ZapIcon({ size = 18, className = '' }: { size?: number; className?: string }) {
+function ZapIcon({ size = 18, className = '', style }: { size?: number; className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} style={style} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
     </svg>
   )
 }
 
-function ClockIcon({ size = 13, className = '' }: { size?: number; className?: string }) {
+function ClockIcon({ size = 13, className = '', style }: { size?: number; className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} style={style} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" />
       <polyline points="12 6 12 12 16 14" />
     </svg>
   )
 }
 
-function AlertTriangleIcon({ size = 16, className = '' }: { size?: number; className?: string }) {
+function AlertTriangleIcon({ size = 16, className = '', style }: { size?: number; className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} style={style} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
       <line x1="12" y1="9" x2="12" y2="13" />
       <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  )
+}
+
+function SettingsIcon({ size = 18, className = '', style }: { size?: number; className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  )
+}
+
+function CheckIcon({ size = 16, className = '', style }: { size?: number; className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   )
 }
@@ -165,7 +182,29 @@ const URL_INSPECTION_PRESETS = [
   { label: 'Chase Lookalike (.top)', url: 'https://chase-security-update.top/login', type: 'danger' },
 ]
 
-type NavView = 'scanner' | 'url_inspector' | 'threat_vault' | 'agent_telemetry'
+type NavView = 'scanner' | 'url_inspector' | 'threat_vault' | 'agent_telemetry' | 'settings'
+
+export interface ProtectionSettings {
+  allowEmailOverlay: boolean
+  autoDetectEmails: boolean
+  syncToS3ThreatVault: boolean
+  enableFeedbackLearning: boolean
+  highlightSuspiciousDomains: boolean
+  mfaProtection: boolean
+  jobScamDetection: boolean
+  agentTelemetry: boolean
+}
+
+const DEFAULT_SETTINGS: ProtectionSettings = {
+  allowEmailOverlay: true,
+  autoDetectEmails: true,
+  syncToS3ThreatVault: true,
+  enableFeedbackLearning: true,
+  highlightSuspiciousDomains: true,
+  mfaProtection: true,
+  jobScamDetection: true,
+  agentTelemetry: true,
+}
 
 type ThreatRecord = {
   id: string
@@ -399,6 +438,62 @@ function App() {
   const [vaultLoading, setVaultLoading] = useState(false)
   const [vaultSearchQuery, setVaultSearchQuery] = useState('')
 
+  // Feature Protection Settings & Synchronization
+  const [settings, setSettings] = useState<ProtectionSettings>(() => {
+    try {
+      const stored = localStorage.getItem('scamshield_settings')
+      if (stored) {
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) }
+      }
+    } catch {
+      // Fallback
+    }
+    return DEFAULT_SETTINGS
+  })
+  const [settingsSavedNotice, setSettingsSavedNotice] = useState(false)
+
+  // Sync settings with Chrome Extension storage if available
+  useEffect(() => {
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      chrome.storage.local.get(['scamshield_settings'], (result) => {
+        if (result?.scamshield_settings && typeof result.scamshield_settings === 'object') {
+          setSettings((prev) => ({ ...prev, ...(result.scamshield_settings as Partial<ProtectionSettings>) }))
+        }
+      })
+    }
+  }, [])
+
+  function updateSetting(key: keyof ProtectionSettings, value: boolean) {
+    setSettings((prev) => {
+      const updated = { ...prev, [key]: value }
+      try {
+        localStorage.setItem('scamshield_settings', JSON.stringify(updated))
+      } catch {
+        // Fallback
+      }
+      if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+        chrome.storage.local.set({ scamshield_settings: updated })
+      }
+      return updated
+    })
+    setSettingsSavedNotice(true)
+    setTimeout(() => setSettingsSavedNotice(false), 2200)
+  }
+
+  function resetSettingsToDefault() {
+    setSettings(DEFAULT_SETTINGS)
+    try {
+      localStorage.setItem('scamshield_settings', JSON.stringify(DEFAULT_SETTINGS))
+    } catch {
+      // Fallback
+    }
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      chrome.storage.local.set({ scamshield_settings: DEFAULT_SETTINGS })
+    }
+    setSettingsSavedNotice(true)
+    setTimeout(() => setSettingsSavedNotice(false), 2200)
+  }
+
   // User Assessment Feedback & Continuous AI Learning Loop
   const [userFeedbackChoice, setUserFeedbackChoice] = useState<'ACCURATE' | 'FALSE_POSITIVE' | 'FALSE_NEGATIVE' | null>(null)
   const [userFeedbackNotes, setUserFeedbackNotes] = useState('')
@@ -410,7 +505,7 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Derived current view ensuring fallback to scanner in extension mode
-  const currentView: NavView = isExtensionMode && (activeView === 'threat_vault' || activeView === 'agent_telemetry')
+  const currentView: NavView = isExtensionMode && (activeView === 'threat_vault' || activeView === 'agent_telemetry' || activeView === 'settings')
     ? 'scanner'
     : activeView
 
@@ -789,6 +884,12 @@ function App() {
   }
 
   function autoDetectFromTab() {
+    if (!settings.autoDetectEmails) {
+      setDetectStatus('Active tab email auto-detection is currently disabled in Settings.')
+      setTimeout(() => setDetectStatus(null), 3500)
+      return
+    }
+
     if (typeof chrome !== 'undefined' && chrome.tabs?.query) {
       setDetectStatus('Checking active tab for open email...')
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -1148,6 +1249,29 @@ ScamShield Protection Team (Spoofed)`,
           )}
         </nav>
 
+        {/* Bottom Section with Separator Line */}
+        {!isExtensionMode && (
+          <div className="sidebar-bottom-section">
+            <div className="sidebar-divider"></div>
+            <button
+              type="button"
+              className={`sidebar-nav-btn ${currentView === 'settings' ? 'active' : ''}`}
+              onClick={() => setActiveView('settings')}
+              title="Protection Settings & Feature Toggles"
+            >
+              <span className="nav-btn-icon">
+                <SettingsIcon size={17} />
+              </span>
+              {!isSidebarCollapsed && (
+                <div className="nav-btn-text">
+                  <span className="nav-btn-title">Settings</span>
+                  <span className="nav-btn-sub">Protection toggles & preferences</span>
+                </div>
+              )}
+            </button>
+          </div>
+        )}
+
         <div className="sidebar-footer">
           <div className="sidebar-status-box">
             <span className="status-live-dot"></span>
@@ -1173,7 +1297,7 @@ ScamShield Protection Team (Spoofed)`,
       <div className="main-workspace">
         {/* Workspace Top Header */}
         <header className="workspace-header">
-          {isExtensionMode && (
+          {isExtensionMode ? (
             <div className="header-nav-tabs">
               <button
                 type="button"
@@ -1194,6 +1318,23 @@ ScamShield Protection Team (Spoofed)`,
                 <span>URL Inspector</span>
               </button>
             </div>
+          ) : (
+            <div className="header-view-indicator">
+              <span className="view-indicator-icon">
+                {currentView === 'scanner' && <ShieldIcon size={16} style={{ color: '#6366f1' }} />}
+                {currentView === 'url_inspector' && <GlobeIcon size={16} style={{ color: '#6366f1' }} />}
+                {currentView === 'threat_vault' && <VaultIcon size={16} style={{ color: '#0ea5e9' }} />}
+                {currentView === 'agent_telemetry' && <ZapIcon size={16} style={{ color: '#f59e0b' }} />}
+                {currentView === 'settings' && <SettingsIcon size={16} style={{ color: '#6366f1' }} />}
+              </span>
+              <span className="view-indicator-label">
+                {currentView === 'scanner' && 'Threat Scanner'}
+                {currentView === 'url_inspector' && 'URL & Domain Inspector'}
+                {currentView === 'threat_vault' && 'S3 Threat Vault'}
+                {currentView === 'agent_telemetry' && 'Agent Telemetry'}
+                {currentView === 'settings' && 'Settings & Protection Toggles'}
+              </span>
+            </div>
           )}
 
           <div className="workspace-header-actions">
@@ -1205,13 +1346,13 @@ ScamShield Protection Team (Spoofed)`,
                 onClick={() => {
                   const next = !isExtensionMode
                   setIsExtensionMode(next)
-                  if (next && (currentView === 'threat_vault' || currentView === 'agent_telemetry')) {
+                  if (next && (currentView === 'threat_vault' || currentView === 'agent_telemetry' || currentView === 'settings')) {
                     setActiveView('scanner')
                   }
                 }}
-                title={isExtensionMode ? 'Switch to Full Web Dashboard (4 Tabs)' : 'Switch to Web Extension Mode (2 Tabs)'}
+                title={isExtensionMode ? 'Switch to Full Web Dashboard (5 Views)' : 'Switch to Web Extension Mode (2 Tabs)'}
               >
-                {isExtensionMode ? 'Extension Mode (2 Tabs)' : 'Webpage View (4 Tabs)'}
+                {isExtensionMode ? 'Extension Mode (2 Tabs)' : 'Webpage View (5 Views)'}
               </button>
             )}
 
@@ -2167,6 +2308,281 @@ ScamShield Protection Team (Spoofed)`,
                 </div>
               </div>
             </section>
+          </main>
+        )}
+
+        {/* ==============================================================
+            VIEW 5: SETTINGS & FEATURE CONFIGURATION (FULL SCREEN PAGE)
+            ============================================================== */}
+        {!isExtensionMode && currentView === 'settings' && (
+          <main className="main-content settings-view">
+            <div className="settings-header-banner">
+              <div className="settings-header-info">
+                <div className="view-badge">PROTECTION PREFERENCES</div>
+                <h2>ScamShield <span>Settings</span></h2>
+                <p>Customize real-time scanning behavior, in-page email overlays, autonomous agent heuristics, and cloud threat vault synchronization.</p>
+              </div>
+              <div className="settings-header-actions">
+                {settingsSavedNotice && (
+                  <div className="settings-saved-pill">
+                    <CheckIcon size={14} />
+                    <span>Saved & Synced</span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="settings-reset-btn"
+                  onClick={resetSettingsToDefault}
+                  title="Reset all settings to recommended security defaults"
+                >
+                  Reset Defaults
+                </button>
+              </div>
+            </div>
+
+            <div className="settings-categories-grid">
+              {/* Category 1: In-Browser & Webmail Protections */}
+              <div className="settings-category-card">
+                <div className="category-header">
+                  <div className="category-icon-box">
+                    <ShieldIcon size={20} style={{ color: '#6366f1' }} />
+                  </div>
+                  <div>
+                    <h3>In-Browser & Webmail Protections</h3>
+                    <p>Floating badges and in-page scanning inside Gmail, Outlook, and webmail</p>
+                  </div>
+                </div>
+
+                <div className="settings-items-list">
+                  {/* Setting: allowEmailOverlay */}
+                  <div className="settings-item-row">
+                    <div className="settings-item-info">
+                      <div className="settings-item-title-row">
+                        <strong>Allow Page Overlay on Emails</strong>
+                        <span className="feature-pill badge-webmail">Gmail & Outlook</span>
+                      </div>
+                      <p>
+                        Display the floating security badge (&ldquo;Scan Email with ScamShield&rdquo;) and inline threat assessment cards directly over opened email threads in Gmail and Outlook webmail.
+                      </p>
+                    </div>
+                    <label className="toggle-switch" aria-label="Toggle email page overlay">
+                      <input
+                        type="checkbox"
+                        checked={settings.allowEmailOverlay}
+                        onChange={(e) => updateSetting('allowEmailOverlay', e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  {/* Setting: autoDetectEmails */}
+                  <div className="settings-item-row">
+                    <div className="settings-item-info">
+                      <div className="settings-item-title-row">
+                        <strong>Active Tab Auto-Detection</strong>
+                        <span className="feature-pill badge-tab">Tab Integration</span>
+                      </div>
+                      <p>
+                        Allow ScamShield to inspect the active browser tab when opened, automatically extracting open email text and sender headers into the scanner.
+                      </p>
+                    </div>
+                    <label className="toggle-switch" aria-label="Toggle active tab auto-detection">
+                      <input
+                        type="checkbox"
+                        checked={settings.autoDetectEmails}
+                        onChange={(e) => updateSetting('autoDetectEmails', e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Category 2: AI Agent & Cloud Threat Intelligence */}
+              <div className="settings-category-card">
+                <div className="category-header">
+                  <div className="category-icon-box">
+                    <VaultIcon size={20} style={{ color: '#0ea5e9' }} />
+                  </div>
+                  <div>
+                    <h3>Autonomous Agent & Cloud Threat Vault</h3>
+                    <p>Amazon Bedrock reasoning, S3 campaign cataloging, and feedback memory</p>
+                  </div>
+                </div>
+
+                <div className="settings-items-list">
+                  {/* Setting: syncToS3ThreatVault */}
+                  <div className="settings-item-row">
+                    <div className="settings-item-info">
+                      <div className="settings-item-title-row">
+                        <strong>Amazon S3 Threat Vault Sync</strong>
+                        <span className="feature-pill badge-aws">AWS S3</span>
+                      </div>
+                      <p>
+                        Automatically synchronize verified zero-day scam payloads and emerging threat signatures to Amazon S3 bucket (<code>scamshield-threat-vault</code>) for historical threat cross-referencing.
+                      </p>
+                    </div>
+                    <label className="toggle-switch" aria-label="Toggle Amazon S3 Threat Vault sync">
+                      <input
+                        type="checkbox"
+                        checked={settings.syncToS3ThreatVault}
+                        onChange={(e) => updateSetting('syncToS3ThreatVault', e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  {/* Setting: enableFeedbackLearning */}
+                  <div className="settings-item-row">
+                    <div className="settings-item-info">
+                      <div className="settings-item-title-row">
+                        <strong>Continuous Human Feedback Learning</strong>
+                        <span className="feature-pill badge-ai">Reinforcement Memory</span>
+                      </div>
+                      <p>
+                        Dynamically inject human corrections (e.g. false alarm calibrations) into the AWS Bedrock agent prompt context so the AI avoids repeating past misclassifications.
+                      </p>
+                    </div>
+                    <label className="toggle-switch" aria-label="Toggle human feedback learning">
+                      <input
+                        type="checkbox"
+                        checked={settings.enableFeedbackLearning}
+                        onChange={(e) => updateSetting('enableFeedbackLearning', e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  {/* Setting: agentTelemetry */}
+                  <div className="settings-item-row">
+                    <div className="settings-item-info">
+                      <div className="settings-item-title-row">
+                        <strong>Live Agent Observability & Tracing</strong>
+                        <span className="feature-pill badge-observability">Strands SDK</span>
+                      </div>
+                      <p>
+                        Record and render multi-stage agent telemetry steps (Payload Ingestion &rarr; URL Inspection &rarr; MFA Verifier &rarr; S3 Vault &rarr; Reasoning Synthesis) during deep scans.
+                      </p>
+                    </div>
+                    <label className="toggle-switch" aria-label="Toggle live agent observability">
+                      <input
+                        type="checkbox"
+                        checked={settings.agentTelemetry}
+                        onChange={(e) => updateSetting('agentTelemetry', e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Category 3: Heuristic & Threat Detection Engines */}
+              <div className="settings-category-card">
+                <div className="category-header">
+                  <div className="category-icon-box">
+                    <ZapIcon size={20} style={{ color: '#f59e0b' }} />
+                  </div>
+                  <div>
+                    <h3>Heuristic Detection & Phishing Safeguards</h3>
+                    <p>Fine-tune rule-based security filters and specialized scam heuristics</p>
+                  </div>
+                </div>
+
+                <div className="settings-items-list">
+                  {/* Setting: highlightSuspiciousDomains */}
+                  <div className="settings-item-row">
+                    <div className="settings-item-info">
+                      <div className="settings-item-title-row">
+                        <strong>High-Risk Domain & Lookalike Shield</strong>
+                        <span className="feature-pill badge-heuristics">Domain Engine</span>
+                      </div>
+                      <p>
+                        Heuristically analyze destination hostnames for brand typosquatting, raw IP addresses, and high-abuse top-level domains (.xyz, .top, .buzz, .support).
+                      </p>
+                    </div>
+                    <label className="toggle-switch" aria-label="Toggle high-risk domain shield">
+                      <input
+                        type="checkbox"
+                        checked={settings.highlightSuspiciousDomains}
+                        onChange={(e) => updateSetting('highlightSuspiciousDomains', e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  {/* Setting: mfaProtection */}
+                  <div className="settings-item-row">
+                    <div className="settings-item-info">
+                      <div className="settings-item-title-row">
+                        <strong>MFA Phishing & Passcode Interception Defense</strong>
+                        <span className="feature-pill badge-heuristics">Auth Filter</span>
+                      </div>
+                      <p>
+                        Distinguish authentic automated one-time security passcodes (OTP) from deceptive interception traps instructing victims to text or reply back with their login codes.
+                      </p>
+                    </div>
+                    <label className="toggle-switch" aria-label="Toggle MFA phishing defense">
+                      <input
+                        type="checkbox"
+                        checked={settings.mfaProtection}
+                        onChange={(e) => updateSetting('mfaProtection', e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  {/* Setting: jobScamDetection */}
+                  <div className="settings-item-row">
+                    <div className="settings-item-info">
+                      <div className="settings-item-title-row">
+                        <strong>Employment & Recruitment Fraud Filter</strong>
+                        <span className="feature-pill badge-heuristics">Job Alerts</span>
+                      </div>
+                      <p>
+                        Verify legitimate job boards (LinkedIn, Greenhouse, Lever, Indeed) while flagging recruitment scam patterns (fake check for equipment, off-platform Telegram interviews, free webmail HR).
+                      </p>
+                    </div>
+                    <label className="toggle-switch" aria-label="Toggle job scam detection">
+                      <input
+                        type="checkbox"
+                        checked={settings.jobScamDetection}
+                        onChange={(e) => updateSetting('jobScamDetection', e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* System Diagnostics Box */}
+              <div className="settings-diagnostics-card">
+                <div className="diag-header">
+                  <h4>Active System Runtime & Security Engines</h4>
+                  <span className="status-live-pill">
+                    <span className="live-dot-pulse"></span>
+                    Connected
+                  </span>
+                </div>
+                <div className="diag-grid">
+                  <div className="diag-item">
+                    <span className="diag-label">Foundation Model</span>
+                    <strong>AWS Bedrock • Nova Lite (us.amazon.nova-lite-v1:0)</strong>
+                  </div>
+                  <div className="diag-item">
+                    <span className="diag-label">Agent Framework</span>
+                    <strong>AWS Strands Agents SDK (@strands-agents/sdk)</strong>
+                  </div>
+                  <div className="diag-item">
+                    <span className="diag-label">Cloud Threat Vault</span>
+                    <strong>Amazon S3 (scamshield-threat-vault-070780358311)</strong>
+                  </div>
+                  <div className="diag-item">
+                    <span className="diag-label">Configuration Sync</span>
+                    <strong>Chrome Storage Local & Web LocalStorage Active</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
           </main>
         )}
 

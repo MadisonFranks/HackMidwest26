@@ -5,6 +5,35 @@
   let floatingBtn = null;
   let assessmentCard = null;
   let isScanning = false;
+  let protectionSettings = {
+    allowEmailOverlay: true,
+  };
+
+  // 0. Synchronize protection settings from ScamShield Settings Console
+  if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+    chrome.storage.local.get(['scamshield_settings'], (result) => {
+      if (result && result.scamshield_settings) {
+        protectionSettings = { ...protectionSettings, ...result.scamshield_settings };
+        if (protectionSettings.allowEmailOverlay === false) {
+          if (floatingBtn) floatingBtn.style.display = 'none';
+          if (assessmentCard) assessmentCard.style.display = 'none';
+        }
+      }
+    });
+
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.scamshield_settings) {
+        const newSettings = changes.scamshield_settings.newValue || {};
+        protectionSettings = { ...protectionSettings, ...newSettings };
+        if (protectionSettings.allowEmailOverlay === false) {
+          if (floatingBtn) floatingBtn.style.display = 'none';
+          if (assessmentCard) assessmentCard.style.display = 'none';
+        } else {
+          ensureFloatingButton();
+        }
+      }
+    });
+  }
 
   // 1. Robust email extraction for Gmail, Outlook, Yahoo Mail, and webmail
   function extractEmailData() {
@@ -165,6 +194,12 @@
 
   // 3. Inject floating "Scan This Email" button when an email is present
   function ensureFloatingButton() {
+    if (protectionSettings.allowEmailOverlay === false) {
+      if (floatingBtn) floatingBtn.style.display = 'none';
+      if (assessmentCard) assessmentCard.style.display = 'none';
+      return;
+    }
+
     const data = extractEmailData();
 
     if (!data.hasEmail) {
