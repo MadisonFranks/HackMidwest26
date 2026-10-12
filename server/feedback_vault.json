@@ -1,0 +1,38 @@
+[
+  {
+    "id": "fb_seed_001",
+    "timestamp": "2026-10-11T14:16:36.584Z",
+    "isAccurate": false,
+    "feedbackType": "FALSE_POSITIVE",
+    "userNotes": "Legitimate hackathon project submission form sent by Hack Midwest organizers.",
+    "originalScore": 50,
+    "originalRiskLevel": "MODERATE",
+    "correctedScore": 10,
+    "sender": "Michael Gelphman <mike@kcitp.com>",
+    "domain": "kcitp.com",
+    "keywords": [
+      "kcitp.com",
+      "hack midwest",
+      "forms.gle"
+    ],
+    "status": "LEARNED"
+  },
+  {
+    "id": "fb_seed_002",
+    "timestamp": "2026-10-10T22:16:36.585Z",
+    "isAccurate": true,
+    "feedbackType": "ACCURATE",
+    "userNotes": "Correctly caught fraudulent wire transfer invoice on unverified .xyz domain.",
+    "originalScore": 95,
+    "originalRiskLevel": "CRITICAL",
+    "correctedScore": 95,
+    "sender": "service@secure-bank-verify.xyz",
+    "domain": "secure-bank-verify.xyz",
+    "keywords": [
+      "secure-bank-verify.xyz",
+      "invoice",
+      "wire transfer"
+    ],
+    "status": "VERIFIED"
+  }
+]

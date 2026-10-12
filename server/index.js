@@ -6,6 +6,20 @@ import dotenv from 'dotenv';
 import { Agent, tool, DocumentBlock, ImageBlock, TextBlock, BedrockModel } from '@strands-agents/sdk';
 import { z } from 'zod';
 import { initS3ThreatVault, queryThreatVault, archiveThreatToS3, getAllThreats } from './s3ThreatVault.js';
+import {
+  isTrustedDomain,
+  getVerifiedOrganization,
+  detectBrandLookalike,
+  getTrustedDomainStats,
+  getAllTrustedDomains,
+  FREE_WEBMAIL_PROVIDERS
+} from './trustedDomains.js';
+import {
+  saveFeedback,
+  getFeedbackStats,
+  queryFeedbackMemory,
+  getLearnedCorrectionsPrompt
+} from './feedbackVault.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -41,20 +55,32 @@ const urlInspectionTool = tool({
       const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(parsed.hostname);
       const hasSuspiciousTld = /\.(xyz|top|work|click|loan|info|tk|gq|cf|buzz|country|kim|stream|gdn|mom|rest|live|fit|bar|cam)$/i.test(parsed.hostname);
 
-      const isTrustedDomain = [
-        'linkedin.com', 'google.com', 'apple.com', 'amazon.com', 'microsoft.com',
-        'github.com', 'indeed.com', 'glassdoor.com', 'ziprecruiter.com', 'greenhouse.io',
-        'lever.co', 'workday.com', 'chase.com', 'paypal.com'
-      ].some((d) => parsed.hostname === d || parsed.hostname.endsWith(`.${d}`));
+      const isTrusted = isTrustedDomain(parsed.hostname);
+      const verifiedOrg = getVerifiedOrganization(parsed.hostname);
+      const lookalikeBrands = detectBrandLookalike(parsed.hostname);
 
-      if (isTrustedDomain) {
+      if (isTrusted) {
         return JSON.stringify({
           hostname: parsed.hostname,
           protocol: parsed.protocol,
           isTrustedPlatform: true,
+          verifiedOrganization: verifiedOrg.isVerified ? verifiedOrg.organization : null,
           isIpAddress: false,
           hasSuspiciousTld: false,
-          warning: 'Authenticated official company/platform domain. Standard legitimate link.'
+          warning: `Authenticated official domain for ${verifiedOrg.isVerified ? verifiedOrg.organization : 'legitimate platform'}. Standard legitimate link.`
+        });
+      }
+
+      if (lookalikeBrands.length > 0) {
+        return JSON.stringify({
+          hostname: parsed.hostname,
+          protocol: parsed.protocol,
+          isTrustedPlatform: false,
+          isLookalikePhishing: true,
+          impersonatedBrands: lookalikeBrands,
+          isIpAddress,
+          hasSuspiciousTld,
+          warning: `Brand Lookalike Phishing Alert: Domain incorporates brand name(s) [${lookalikeBrands.join(', ')}] but is NOT registered to the official company.`
         });
       }
 
@@ -113,69 +139,17 @@ const senderAndMfaVerificationTool = tool({
         const emailMatch = cleanSender.match(/[a-z0-9._%+-]+@([a-z0-9.-]+\.[a-z]{2,})/i);
         const domain = emailMatch ? emailMatch[1] : cleanSender.replace(/^https?:\/\//, '').split('/')[0];
 
-        const KNOWN_LEGITIMATE_ROOTS = {
-          'google.com': 'Google',
-          'googlemail.com': 'Google Mail',
-          'apple.com': 'Apple',
-          'icloud.com': 'Apple iCloud',
-          'microsoft.com': 'Microsoft',
-          'live.com': 'Microsoft',
-          'outlook.com': 'Microsoft Outlook',
-          'office.com': 'Microsoft Office',
-          'amazon.com': 'Amazon',
-          'aws.amazon.com': 'Amazon Web Services',
-          'github.com': 'GitHub',
-          'paypal.com': 'PayPal',
-          'chase.com': 'Chase Bank',
-          'bankofamerica.com': 'Bank of America',
-          'wellsfargo.com': 'Wells Fargo',
-          'citi.com': 'Citibank',
-          'capitalone.com': 'Capital One',
-          'discover.com': 'Discover',
-          'fidelity.com': 'Fidelity',
-          'schwab.com': 'Charles Schwab',
-          'usbank.com': 'U.S. Bank',
-          'americanexpress.com': 'American Express',
-          'netflix.com': 'Netflix',
-          'spotify.com': 'Spotify',
-          'uber.com': 'Uber',
-          'linkedin.com': 'LinkedIn',
-          'indeed.com': 'Indeed',
-          'glassdoor.com': 'Glassdoor',
-          'ziprecruiter.com': 'ZipRecruiter',
-          'greenhouse.io': 'Greenhouse ATS',
-          'lever.co': 'Lever ATS',
-          'workday.com': 'Workday',
-          'discord.com': 'Discord',
-          'slack.com': 'Slack',
-          'zoom.us': 'Zoom',
-          'dropbox.com': 'Dropbox',
-          'stripe.com': 'Stripe',
-          'docusign.net': 'DocuSign',
-          'docusign.com': 'DocuSign',
-          'usps.com': 'US Postal Service',
-          'fedex.com': 'FedEx',
-          'ups.com': 'UPS'
-        };
+        const verifiedOrgInfo = getVerifiedOrganization(cleanSender);
+        const verifiedOrg = verifiedOrgInfo.isVerified ? verifiedOrgInfo.organization : null;
 
-        const FREE_WEBMAIL = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'aol.com', 'icloud.com', 'proton.me', 'protonmail.com'];
-        const BRAND_NAMES = ['paypal', 'amazon', 'apple', 'microsoft', 'chase', 'bank of america', 'wells fargo', 'geek squad', 'norton', 'mcafee', 'usps'];
-
-        // Check if root domain matches verified organization
-        let verifiedOrg = null;
-        for (const [root, org] of Object.entries(KNOWN_LEGITIMATE_ROOTS)) {
-          if (domain === root || domain.endsWith(`.${root}`)) {
-            verifiedOrg = org;
-            break;
-          }
-        }
-
-        // Check if brand is sent from free webmail
-        const isFreeWebmail = FREE_WEBMAIL.includes(domain);
-        const freeWebmailImpersonation = isFreeWebmail && BRAND_NAMES.some(brand => cleanSender.includes(brand));
-
-        // Check if domain is a hyphenated lookalike (e.g. amazon-support-alerts.xyz)
-        const isHyphenatedLookalike = BRAND_NAMES.some(b => domain.includes(b)) && !verifiedOrg;
+        const isFreeWebmail = FREE_WEBMAIL_PROVIDERS.has(domain);
+        const lookalikeBrands = detectBrandLookalike(domain);
+        const senderImpersonatedBrands = detectBrandLookalike(cleanSender);
+        const freeWebmailImpersonation = isFreeWebmail && !verifiedOrg && (
+          senderImpersonatedBrands.length > 0 ||
+          ['paypal', 'amazon', 'apple', 'microsoft', 'chase', 'bank of america', 'wells fargo', 'geek squad', 'norton', 'mcafee', 'usps'].some(b => cleanSender.includes(b))
+        );
+        const isLookalikeDomain = !verifiedOrg && lookalikeBrands.length > 0;
 
         if (verifiedOrg) {
           result.senderAnalysis = {
@@ -191,12 +165,13 @@ const senderAndMfaVerificationTool = tool({
             isSevereImpersonation: true,
             guidance: `Severe Brand Impersonation: Sender claims to be an established brand but is sending from a public free email provider (${domain}). Major indicator of phishing/fraud.`
           };
-        } else if (isHyphenatedLookalike) {
+        } else if (isLookalikeDomain) {
           result.senderAnalysis = {
             domain,
             isVerifiedAuthentic: false,
             isLookalikeDomain: true,
-            guidance: `Lookalike Phishing Domain: Domain contains a brand name but is not registered to the official company. High probability of phishing.`
+            lookalikeBrands,
+            guidance: `Lookalike Phishing Domain: Domain contains known brand name(s) [${lookalikeBrands.join(', ')}] but is not registered to the official company. High probability of phishing.`
           };
         } else {
           result.senderAnalysis = {
@@ -276,6 +251,23 @@ const senderAndMfaVerificationTool = tool({
       return JSON.stringify(result);
     } catch (err) {
       return JSON.stringify({ error: err.message });
+    }
+  }
+});
+
+// 2d. Strands Agent Tool: Query Human Feedback Memory & User Corrections
+const feedbackMemoryTool = tool({
+  name: 'query_human_feedback_memory',
+  description: 'Queries human feedback memory to check if past users flagged an assessment as a false positive or false negative for a domain, brand, or sender',
+  inputSchema: z.object({
+    query: z.string().describe('The domain name, sender address, or phrase to check for user corrections')
+  }),
+  callback: async ({ query }) => {
+    try {
+      const matchData = queryFeedbackMemory(query);
+      return JSON.stringify(matchData);
+    } catch {
+      return JSON.stringify({ matched: false, results: [] });
     }
   }
 });
@@ -375,32 +367,46 @@ CRITICAL INVESTIGATION GUIDELINES:
      * Purporting to represent an established brand (Sony, Piper, Google, Amazon) from a free personal email address (@gmail.com, @yahoo.com).
      * Unsolicited hiring without any interview ("Congratulations, you are hired immediately").
 
-4. OPAQUE / HIDDEN HYPERLINKS & CTA BUTTONS:
+4. HACKATHONS, DEVELOPER COMPETITIONS & EVENT COMMUNICATIONS:
+   - Recognize event organizer communications (e.g. Hack Midwest, KCITP, Devpost, Major League Hacking, university competitions).
+   - Event organizers routinely send project submission forms, schedule reminders, judging criteria, or deadline notices (e.g. "submit your project by 08:00 AM Sunday", "please fill out ASAP", "Don't wait until the last minute"). This is NORMAL operational event coordination, NOT synthetic phishing panic.
+   - Legitimate organizers routinely use standard collaboration tools like Google Forms (forms.gle, docs.google.com/forms), Devpost, Typeform, or GitHub to collect demo video links, team submissions, and challenge entries. These are authentic collaborative workflows, NOT phishing links.
+   - Direct correspondence from organizers (e.g. Michael Gelphman <mike@kcitp.com>) is sent as direct individual/community mail and DOES NOT contain marketing unsubscribe footers. NEVER flag the lack of an unsubscribe option as a suspicious indicator for direct human, academic, or organizer communication.
+   - Unless an email asks for credit card numbers, bank wires, personal passwords, or redirects to lookalike/suspicious TLDs (.xyz, .top), score authentic event/hackathon communications as LOW RISK (0-15).
+
+5. OPAQUE / HIDDEN HYPERLINKS & CTA BUTTONS:
    - In screenshots or formatted emails, attackers frequently use stylized Call-To-Action (CTA) buttons (e.g., "Verify Account", "Log In to Fix", "Update Payment Info", "Claim Refund", "Cancel Order", "View Statement", "Secure Account") that hide the real destination URL from the user.
    - In a screenshot, the underlying URL is invisible and cannot be verified. Attackers deliberately exploit this visual disguise to direct victims to credential-harvesting phishing portals.
    - NEVER lower the threat score simply because "no visible URL was detected" or "no links were written in plain text."
    - The presence of an unverified/hidden-destination button paired with urgency, account suspension warnings, unexpected invoices, or financial claims is a MAJOR RED FLAG and must result in a HIGH (60-79) or CRITICAL (80-100) risk score.
    - Always flag this in indicators: e.g., "Opaque Call-To-Action Button: Contains button '[Button Text]' that obscures the destination URL, preventing domain safety verification."
 
-5. VISUAL & SCREENSHOT HEURISTICS:
+6. VISUAL & SCREENSHOT HEURISTICS:
    - Look for brand impersonation (PayPal, Amazon, Microsoft, Apple, Geek Squad, Norton, Netflix, USPS, banks).
    - Check for mismatched sender info, generic greetings ("Dear Customer"), and synthetic urgency ("within 24 hours", "immediate action required").
    - If any plaintext URL or domain is visible in the text or headers, you MUST call the inspect_url tool.
 
-6. RISK SCORE CALIBRATION (0-100):
+7. FALSE POSITIVE PREVENTION ON BENIGN MESSAGES:
+   - NEVER cite "Presence of external link" or "Lack of visible unsubscribe option" as red flag indicators for legitimate emails.
+   - Standard collaboration links (forms.gle, docs.google.com, github.com, devpost.com, zoom.us) are normal and benign unless asking for passwords or financial payments.
+   - Personal, academic, or event coordination emails without financial extortion or credential theft are LOW RISK.
+
+8. RISK SCORE CALIBRATION (0-100):
    - CRITICAL (80-100): Immediate account threats, fake security alerts with hidden login/payment buttons, brand impersonation via free webmail/lookalike domains, urgent invoice scams, recruitment fake-check/telegram scams, or credential/MFA harvesting.
    - HIGH (60-79): Rendered CTA buttons with unverified destinations, mismatched sender claims, suspicious refund/delivery notices, unverified attachments, or recruitment scams with exaggerated pay.
    - MODERATE (35-59): Unsolicited marketing with aggressive sales language or unverified promotional links without credential theft.
-   - LOW (0-34): Authenticated transactional notices from confirmed official domains, verified LinkedIn/Indeed job alert digests with official links, and legitimate automated MFA/OTP verification code deliveries.
+   - LOW (0-34): Authenticated transactional notices from confirmed official domains, verified LinkedIn/Indeed job alert digests with official links, authentic hackathon/event project submission notices (Hack Midwest, KCITP, Google Forms forms.gle), and legitimate automated MFA/OTP verification code deliveries.
 
-7. RECOMMENDED ACTION:
+9. RECOMMENDED ACTION:
    - If hidden CTA buttons are detected, explicitly instruct the user: "Never click buttons or links in this message. Independently open a browser and visit the official website directly (or contact verified support) to verify your account status."
    - If legitimate MFA is detected: "This appears to be a legitimate one-time passcode. Never share this code with anyone over phone or email."
    - If legitimate verified job alert: "This is an authentic job digest from a verified career platform. Use the official links to view or apply for openings directly."
+   - If legitimate hackathon/event announcement: "This is an authentic event communication from the organizers. It is safe to interact with the provided project submission form."
 
-8. AMAZON S3 THREAT INTELLIGENCE VAULT:
-   - If any domain, brand, phone number, or suspicious sender is present, call query_s3_threat_vault to check if this threat matches cataloged past campaigns in the ScamShield database.`,
-  tools: [urlInspectionTool, threatVaultTool, senderAndMfaVerificationTool]
+10. AMAZON S3 THREAT INTELLIGENCE VAULT & HUMAN FEEDBACK LEARNING:
+   - Call query_s3_threat_vault if any domain, brand, phone number, or suspicious sender is present to match past cataloged attacks.
+   - Call query_human_feedback_memory if the sender or domain may have been corrected by users as a false positive or negative.`,
+  tools: [urlInspectionTool, threatVaultTool, senderAndMfaVerificationTool, feedbackMemoryTool]
 });
 
 // Resilient direct analysis agent (fallback if model produces invalid tool call sequence)
@@ -408,7 +414,7 @@ const directAnalysisAgent = new Agent({
   model: bedrockModel,
   systemPrompt: `You are ScamShield AI, an autonomous cybersecurity investigation agent built for Hack Midwest 2026.
 Your role is to analyze suspicious text, emails, SMS messages, invoices, screenshots, attachments, and links for phishing, fraud, smishing, invoice scams, or credential harvesting.
-Assess sender domain authenticity, recognize verified platform checkmarks and authentic job alert digests (e.g. LinkedIn, Indeed) as low risk (0-15) unless exhibiting recruitment scams (exaggerated pay, Telegram interviews, fake checks), recognize legitimate Multi-Factor Authentication (MFA / 2FA / OTP) codes as low risk (0-15), and output structured threat analysis.`,
+Assess sender domain authenticity, recognize authentic hackathon and event organizer communications (e.g. Hack Midwest, KCITP, Devpost) and project submission forms (Google Forms forms.gle) as low risk (0-15), recognize verified platform checkmarks and authentic job alert digests (e.g. LinkedIn, Indeed) as low risk (0-15) unless exhibiting recruitment scams (exaggerated pay, Telegram interviews, fake checks), recognize legitimate Multi-Factor Authentication (MFA / 2FA / OTP) codes as low risk (0-15), avoid false positives on benign messages (never cite presence of external link or lack of unsubscribe option as a scam), and output structured threat analysis.`,
   tools: []
 });
 
@@ -430,6 +436,77 @@ app.get('/api/health', (req, res) => {
       ? 'Bearer Token (API Key)'
       : 'None detected (check server/.env)'
   });
+});
+
+// Standalone URL Inspection Endpoint (Approach 4)
+app.post('/api/inspect-url', async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url || typeof url !== 'string' || !url.trim()) {
+      return res.status(400).json({ error: 'A valid URL string is required' });
+    }
+
+    const rawInput = url.trim();
+    const normalizedUrl = /^https?:\/\//i.test(rawInput) ? rawInput : `https://${rawInput}`;
+    const parsed = new URL(normalizedUrl);
+    const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(parsed.hostname);
+    const suspiciousTldMatch = parsed.hostname.match(
+      /\.(xyz|top|work|click|loan|info|tk|gq|cf|buzz|country|kim|stream|gdn|mom|rest|live|fit|bar|cam)$/i
+    );
+    const hasSuspiciousTld = Boolean(suspiciousTldMatch);
+
+    const isTrusted = isTrustedDomain(parsed.hostname);
+    const verifiedOrg = getVerifiedOrganization(parsed.hostname);
+    const brandMatches = detectBrandLookalike(parsed.hostname);
+    const isBrandLookalike = !isTrusted && brandMatches.length > 0;
+
+    // Cross-reference with Amazon S3 Threat Vault
+    let vaultMatch = null;
+    try {
+      vaultMatch = await queryThreatVault(parsed.hostname);
+    } catch {
+      vaultMatch = null;
+    }
+
+    let verdict = 'SAFE / TRUSTED PLATFORM';
+    let riskLevel = 'LOW';
+    let riskScore = 5;
+
+    if (isIpAddress || (isBrandLookalike && hasSuspiciousTld)) {
+      verdict = 'CRITICAL / DECEPTIVE DOMAIN';
+      riskLevel = 'CRITICAL';
+      riskScore = 90;
+    } else if (hasSuspiciousTld || isBrandLookalike) {
+      verdict = 'SUSPICIOUS / ELEVATED RISK';
+      riskLevel = 'HIGH';
+      riskScore = 75;
+    } else if (!isTrusted) {
+      verdict = 'UNVERIFIED EXTERNAL DOMAIN';
+      riskLevel = 'MODERATE';
+      riskScore = 35;
+    }
+
+    res.json({
+      url: normalizedUrl,
+      hostname: parsed.hostname,
+      protocol: parsed.protocol,
+      pathname: parsed.pathname,
+      isTrustedDomain: isTrusted,
+      verifiedOrganization: verifiedOrg.isVerified ? verifiedOrg.organization : null,
+      isIpAddress,
+      hasSuspiciousTld,
+      suspiciousTld: suspiciousTldMatch ? suspiciousTldMatch[0] : null,
+      isBrandLookalike,
+      brandMatches,
+      isInsecureHttp: parsed.protocol === 'http:',
+      verdict,
+      riskLevel,
+      riskScore,
+      vaultMatch: vaultMatch?.found ? vaultMatch : null
+    });
+  } catch (err) {
+    res.status(400).json({ error: 'Malformed or invalid URL', details: err.message });
+  }
 });
 
 // Main Analysis Endpoint (Supports text and files)
@@ -468,16 +545,28 @@ app.post('/api/analyze', async (req, res) => {
       promptText += `USER MESSAGE / CONTEXT:\n"""\n${message.trim()}\n"""\n\n`;
     }
 
+    const learnedCorrectionMemory = getLearnedCorrectionsPrompt();
+    if (learnedCorrectionMemory) {
+      promptText += learnedCorrectionMemory;
+    }
+
     promptText += `EVALUATION CHECKLIST:
-1. SENDER DOMAIN & VERIFIED CHECKMARK: Call verify_sender_and_mfa with sender and checkmark status. If sender has a verified checkmark or originates from an authentic platform (e.g. @linkedin.com, @google.com, @apple.com), treat as an authenticated sender.
-2. JOB LISTINGS & CAREER ALERTS: If this is an official job alert digest (such as LinkedIn Job Alerts) from a verified sender, links pointing to the official platform (e.g. linkedin.com/comm/jobs) are normal notification links, NOT phishing links. Score legitimate job digests as LOW RISK (0-15).
+1. SENDER DOMAIN & VERIFIED CHECKMARK: Call verify_sender_and_mfa with sender and checkmark status. If sender has a verified checkmark or originates from an authentic platform (e.g. @linkedin.com, @google.com, @apple.com, @kcitp.com, @hackmidwest.com), treat as an authenticated sender.
+2. HACKATHONS, EVENT COMMUNICATIONS & SUBMISSION DEADLINES: If this is an event announcement, schedule update, or project submission reminder for a hackathon or developer competition (such as Hack Midwest / KCITP):
+   - Standard deadlines (e.g. "submit your project by 08:00AM Sunday", "fill out ASAP", "Don't wait until the last minute") represent legitimate event coordination schedules, NOT scam panic or coercion.
+   - Google Forms (forms.gle) or Devpost links for project submissions, video demos, and challenge tracks are authentic collaborative workflows, NOT phishing links.
+   - Direct human organizer communications (e.g. Mike Gelphman <mike@kcitp.com>) do NOT have marketing unsubscribe links. NEVER flag lack of an unsubscribe option or benign Google Forms links as scam indicators!
+   - Score authentic hackathon communications as LOW RISK (0-15).
+3. JOB LISTINGS & CAREER ALERTS: If this is an official job alert digest (such as LinkedIn Job Alerts) from a verified sender, links pointing to the official platform (e.g. linkedin.com/comm/jobs) are normal notification links, NOT phishing links. Score legitimate job digests as LOW RISK (0-15).
    - Only flag as a job scam (HIGH/CRITICAL) if the message exhibits fake job scam tactics: exaggerated pay ($60-$100/hr data entry), off-platform interviews on Telegram/WhatsApp, fake check for home office equipment, or free webmail recruiter.
-3. MULTI-FACTOR AUTHENTICATION (MFA / OTP): If the message delivers a one-time verification passcode (with standard notes like "expires in 10 minutes" or "do not share this code"), recognize standard automated MFA as LOW RISK (0-15).
-4. OPAQUE CALL-TO-ACTION (CTA) BUTTONS: Are there rendered CTA buttons where the underlying link is obscured? Treat hidden link destinations as an elevated threat factor.
-5. S3 THREAT VAULT & URL CHECKS:
+4. MULTI-FACTOR AUTHENTICATION (MFA / OTP): If the message delivers a one-time verification passcode (with standard notes like "expires in 10 minutes" or "do not share this code"), recognize standard automated MFA as LOW RISK (0-15).
+5. OPAQUE CALL-TO-ACTION (CTA) BUTTONS: Are there rendered CTA buttons where the underlying link is obscured? Treat hidden link destinations as an elevated threat factor.
+6. S3 THREAT VAULT & URL CHECKS:
    - Call query_s3_threat_vault if any domain, brand, phone number, or suspicious sender is present to match past cataloged attacks.
    - Call inspect_url on any visible plaintext URLs or domain structures.
-6. Provide a realistic danger score (0-100), risk level (CRITICAL, HIGH, MODERATE, LOW), concise summary, specific red flag indicators, and clear user guidance.`;
+7. CALIBRATION & FALSE POSITIVE PREVENTION:
+   - NEVER flag benign Google Forms links (forms.gle) or direct emails lacking unsubscribe footers as scams.
+   - Provide a realistic danger score (0-100), risk level (CRITICAL, HIGH, MODERATE, LOW), concise summary, specific red flag indicators, and clear user guidance.`;
 
     // Attempt multimodal Block creation if file dataUrl is present
     let mediaBlock = null;
@@ -628,9 +717,52 @@ app.get('/api/threats', async (req, res) => {
   }
 });
 
+// Expose endpoint to inspect ingested trusted domains database
+app.get('/api/trusted-domains', (req, res) => {
+  try {
+    const stats = getTrustedDomainStats();
+    const domains = getAllTrustedDomains();
+    res.json({
+      count: domains.length,
+      stats,
+      domains
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// User Feedback & Continuous Model Learning Endpoints
+app.post('/api/feedback', async (req, res) => {
+  try {
+    const feedback = await saveFeedback(req.body || {});
+    res.json({
+      success: true,
+      message: 'Feedback recorded to ScamShield Learning Vault (Amazon S3)',
+      feedback
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/feedback', (req, res) => {
+  try {
+    const stats = getFeedbackStats();
+    res.json({
+      status: 'ok',
+      ...stats
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 5001;
 const server = app.listen(PORT, () => {
+  const domainStats = getTrustedDomainStats();
   console.log(`🛡️  ScamShield Strands Agent API listening on http://localhost:${PORT}`);
+  console.log(`📋  Ingested ${domainStats.totalDomains} trusted enterprise/banking/ATS domains (${domainStats.totalBrands} verified brands)`);
 });
 
 server.on('error', (err) => {

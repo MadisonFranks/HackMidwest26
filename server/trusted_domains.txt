@@ -1,0 +1,236 @@
+# ScamShield Verified & Legitimate Domains Database
+# Format: <domain>, <Organization Name> (or just <domain>)
+# Lines starting with # are comments. Blank lines are ignored.
+# Used by ScamShield AI Strands Agent & URL Inspector to eliminate false positives
+# and detect brand lookalike / typosquatting phishing domains.
+
+# ==============================================================================
+# 1. Tech, Cloud & Developer Infrastructure
+# ==============================================================================
+google.com, Google
+googlemail.com, Google Mail
+forms.gle, Google Forms
+docs.google.com, Google Docs
+drive.google.com, Google Drive
+youtube.com, YouTube
+android.com, Android
+apple.com, Apple
+icloud.com, Apple iCloud
+microsoft.com, Microsoft
+office.com, Microsoft Office
+office365.com, Microsoft Office 365
+bing.com, Microsoft Bing
+azure.com, Microsoft Azure
+msn.com, MSN
+amazon.com, Amazon
+aws.amazon.com, Amazon Web Services
+amazon.jobs, Amazon Jobs
+primevideo.com, Amazon Prime Video
+github.com, GitHub
+gitlab.com, GitLab
+cloudflare.com, Cloudflare
+meta.com, Meta
+facebook.com, Facebook
+instagram.com, Instagram
+whatsapp.com, WhatsApp
+threads.net, Threads
+x.com, X (formerly Twitter)
+twitter.com, Twitter
+oracle.com, Oracle
+ibm.com, IBM
+cisco.com, Cisco
+webex.com, Webex
+salesforce.com, Salesforce
+adobe.com, Adobe
+servicenow.com, ServiceNow
+intuit.com, Intuit
+turbotax.com, TurboTax
+quickbooks.com, QuickBooks
+redhat.com, Red Hat
+nvidia.com, NVIDIA
+intel.com, Intel
+amd.com, AMD
+
+# ==============================================================================
+# 2. Banking, Financial Services & FinTech
+# ==============================================================================
+chase.com, Chase Bank
+jpmorganchase.com, JPMorgan Chase
+jpmorgan.com, JPMorgan
+bankofamerica.com, Bank of America
+bofa.com, Bank of America
+wellsfargo.com, Wells Fargo
+citi.com, Citibank
+citigroup.com, Citigroup
+capitalone.com, Capital One
+discover.com, Discover Bank
+americanexpress.com, American Express
+amex.com, American Express
+usbank.com, U.S. Bank
+pnc.com, PNC Bank
+tdbank.com, TD Bank
+td.com, TD Bank
+schwab.com, Charles Schwab
+fidelity.com, Fidelity Investments
+vanguard.com, Vanguard
+morganstanley.com, Morgan Stanley
+goldmansachs.com, Goldman Sachs
+paypal.com, PayPal
+venmo.com, Venmo
+stripe.com, Stripe
+squareup.com, Square
+square.com, Square
+cash.app, Cash App
+robinhood.com, Robinhood
+coinbase.com, Coinbase
+synchrony.com, Synchrony Bank
+synchronybank.com, Synchrony Bank
+ally.com, Ally Bank
+barclays.com, Barclays
+barclaycardus.com, Barclays
+navyfederal.org, Navy Federal Credit Union
+usaa.com, USAA
+experian.com, Experian
+equifax.com, Equifax
+transunion.com, TransUnion
+
+# ==============================================================================
+# 3. Career Platforms & Applicant Tracking Systems (ATS)
+# ==============================================================================
+linkedin.com, LinkedIn
+indeed.com, Indeed
+glassdoor.com, Glassdoor
+ziprecruiter.com, ZipRecruiter
+greenhouse.io, Greenhouse ATS
+boards.greenhouse.io, Greenhouse ATS
+lever.co, Lever ATS
+jobs.lever.co, Lever ATS
+workday.com, Workday
+myworkdayjobs.com, Workday Careers
+smartrecruiters.com, SmartRecruiters
+jobvite.com, Jobvite
+ashbyhq.com, Ashby ATS
+icims.com, iCIMS ATS
+joinhandshake.com, Handshake
+monster.com, Monster
+careerbuilder.com, CareerBuilder
+dice.com, Dice
+bamboohr.com, BambooHR
+rippling.com, Rippling
+gusto.com, Gusto
+brassring.com, IBM Kenexa BrassRing
+taleo.net, Oracle Taleo
+
+# ==============================================================================
+# 4. Shipping, Logistics & Postal Services
+# ==============================================================================
+usps.com, United States Postal Service
+fedex.com, FedEx
+ups.com, UPS
+dhl.com, DHL
+dhl-express.com, DHL Express
+royalmail.com, Royal Mail
+canadapost-postescanada.ca, Canada Post
+ontrac.com, OnTrac
+purolator.com, Purolator
+
+# ==============================================================================
+# 5. Government, Tax & Official Services
+# ==============================================================================
+irs.gov, Internal Revenue Service
+ssa.gov, Social Security Administration
+usa.gov, USA.gov
+studentaid.gov, Federal Student Aid
+state.gov, U.S. Department of State
+ftc.gov, Federal Trade Commission
+fbi.gov, FBI
+ic3.gov, Internet Crime Complaint Center (IC3)
+medicare.gov, Medicare
+cdc.gov, Centers for Disease Control and Prevention
+dhs.gov, Department of Homeland Security
+
+# ==============================================================================
+# 6. Enterprise Collaboration, Communication & Digital Signatures
+# ==============================================================================
+slack.com, Slack
+zoom.us, Zoom
+discord.com, Discord
+dropbox.com, Dropbox
+box.com, Box
+notion.so, Notion
+asana.com, Asana
+docusign.com, DocuSign
+docusign.net, DocuSign
+adobesign.com, Adobe Sign
+hellosign.com, Dropbox Sign
+atlassian.com, Atlassian
+jira.com, Jira
+trello.com, Trello
+miro.com, Miro
+figma.com, Figma
+canva.com, Canva
+
+# ==============================================================================
+# 7. Major Retail, E-Commerce, Hospitality & Travel
+# ==============================================================================
+amazon.com, Amazon
+ebay.com, eBay
+walmart.com, Walmart
+target.com, Target
+bestbuy.com, Best Buy
+costco.com, Costco
+homedepot.com, The Home Depot
+uber.com, Uber
+lyft.com, Lyft
+airbnb.com, Airbnb
+booking.com, Booking.com
+expedia.com, Expedia
+delta.com, Delta Air Lines
+united.com, United Airlines
+aa.com, American Airlines
+southwest.com, Southwest Airlines
+
+# ==============================================================================
+# 8. Streaming, Media & Entertainment
+# ==============================================================================
+netflix.com, Netflix
+spotify.com, Spotify
+hulu.com, Hulu
+disneyplus.com, Disney+
+max.com, Max (HBO)
+steampowered.com, Steam
+steamcommunity.com, Steam Community
+playstation.com, PlayStation
+sony.com, Sony
+nintendo.com, Nintendo
+
+# ==============================================================================
+# 9. Hackathons, Developer Competitions & Event Organizers
+# ==============================================================================
+kcitp.com, KC Information Technology Professionals (Hack Midwest Organizer)
+hackmidwest.com, Hack Midwest
+devpost.com, Devpost Hackathons
+mlh.io, Major League Hacking
+eventbrite.com, Eventbrite
+luma.com, Lu.ma Events
+lu.ma, Lu.ma Events
+meetup.com, Meetup
+typeform.com, Typeform
+surveymonkey.com, SurveyMonkey
+airtable.com, Airtable
+calendly.com, Calendly
+notion.site, Notion
+
+# ==============================================================================
+# 10. Higher Education, LMS & Academic Portals
+# ==============================================================================
+wichita.edu, Wichita State University
+blackboard.com, Blackboard LMS
+instructure.com, Canvas LMS
+canvas.net, Canvas LMS
+gradescope.com, Gradescope
+piazza.com, Piazza
+edstem.org, Ed Discussion
+qualtrics.com, Qualtrics Surveys
+handshake.com, Handshake Career Platform
+joinhandshake.com, Handshake Career Platform

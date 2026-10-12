@@ -94,13 +94,29 @@
     const senderDomain = (senderEmailMatch ? senderEmailMatch[1] : '').toLowerCase();
 
     const officialLinks = [];
+    const trustedPlatformLinks = [];
     const externalLinks = [];
+
+    const TRUSTED_SERVICES = [
+      'forms.gle', 'docs.google.com', 'drive.google.com', 'google.com',
+      'github.com', 'gitlab.com', 'devpost.com', 'zoom.us', 'slack.com',
+      'linkedin.com', 'youtube.com', 'eventbrite.com', 'luma.com', 'lu.ma',
+      'hackmidwest.com', 'kcitp.com', 'mlh.io', 'typeform.com', 'surveymonkey.com',
+      'airtable.com', 'calendly.com', 'notion.site', 'handshake.com', 'joinhandshake.com',
+      'gradescope.com', 'piazza.com', 'edstem.org', 'blackboard.com', 'instructure.com'
+    ];
 
     uniqueLinks.forEach((link) => {
       try {
         const parsed = new URL(link);
-        if (senderDomain && (parsed.hostname === senderDomain || parsed.hostname.endsWith(`.${senderDomain}`))) {
+        const host = parsed.hostname.toLowerCase();
+        const isOfficial = senderDomain && (host === senderDomain || host.endsWith(`.${senderDomain}`));
+        const isTrustedService = TRUSTED_SERVICES.some((s) => host === s || host.endsWith(`.${s}`));
+
+        if (isOfficial) {
           officialLinks.push(link);
+        } else if (isTrustedService) {
+          trustedPlatformLinks.push(link);
         } else {
           externalLinks.push(link);
         }
@@ -116,8 +132,9 @@
         ? `Platform Verification Status: [VERIFIED SENDER] Confirmed official blue verification checkmark badge present next to sender.`
         : '',
       bodyText ? `Message Body:\n${bodyText}` : '',
-      officialLinks.length > 0 ? `Official Platform Links (Matching Verified Domain):\n${officialLinks.slice(0, 5).join('\n')}` : '',
-      externalLinks.length > 0 ? `External / Third-Party Links:\n${externalLinks.slice(0, 5).join('\n')}` : ''
+      officialLinks.length > 0 ? `Official Sender Domain Links:\n${officialLinks.slice(0, 5).join('\n')}` : '',
+      trustedPlatformLinks.length > 0 ? `Verified Standard Service Links (Google Forms, Devpost, GitHub, etc.):\n${trustedPlatformLinks.slice(0, 5).join('\n')}` : '',
+      externalLinks.length > 0 ? `Unverified Third-Party Links:\n${externalLinks.slice(0, 5).join('\n')}` : ''
     ]
       .filter(Boolean)
       .join('\n\n');
@@ -162,7 +179,7 @@
       floatingBtn.id = 'scamshield-floating-trigger';
       floatingBtn.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 16px;">🛡️</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           <span id="scamshield-btn-label" style="font-weight: 600; font-size: 13px; letter-spacing: -0.01em;">Scan Email with ScamShield</span>
         </div>
       `;
@@ -312,7 +329,7 @@
       </style>
       <div style="background: #1e293b; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155;">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 16px;">🛡️</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           <span style="font-weight: 700; color: #ffffff; letter-spacing: -0.01em;">ScamShield Threat Assessment</span>
         </div>
         <button id="scamshield-card-close" style="background: none; border: none; color: #94a3b8; font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1;">✕</button>
@@ -371,6 +388,28 @@
             : ''
         }
 
+        <!-- Model Feedback & Learning Widget -->
+        <div id="scamshield-feedback-box" style="background: rgba(30, 41, 59, 0.6); border: 1px solid #334155; border-radius: 8px; padding: 10px; margin-bottom: 12px;">
+          <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+            <span>Was this assessment accurate?</span>
+            <span id="scamshield-feedback-status" style="font-size: 11px; font-weight: 600; color: #38bdf8;"></span>
+          </div>
+          <div id="scamshield-feedback-btn-group" style="display: flex; gap: 8px;">
+            <button id="scamshield-fb-accurate" type="button" style="flex: 1; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; transition: background 0.15s;">
+              Accurate
+            </button>
+            <button id="scamshield-fb-falsealarm" type="button" style="flex: 1; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; padding: 6px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; transition: background 0.15s;">
+              False Alarm
+            </button>
+          </div>
+          <div id="scamshield-fb-details" style="display: none; margin-top: 8px;">
+            <input id="scamshield-fb-note" type="text" placeholder="Help AI learn: Why was this wrong? (e.g. Legit hackathon email)" style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid #475569; color: #f8fafc; padding: 6px 8px; border-radius: 6px; font-size: 11px; margin-bottom: 6px;" />
+            <button id="scamshield-fb-submit" type="button" style="width: 100%; background: #6366f1; border: none; color: #ffffff; padding: 6px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;">
+              Send Feedback to Learning Vault
+            </button>
+          </div>
+        </div>
+
         <!-- S3 Threat Vault Badge -->
         <div style="display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #94a3b8; border-top: 1px solid #334155; padding-top: 10px; margin-top: 8px;">
           <span>Database: Amazon S3 Vault</span>
@@ -385,6 +424,53 @@
     document.getElementById('scamshield-card-close')?.addEventListener('click', () => {
       assessmentCard.remove();
       assessmentCard = null;
+    });
+
+    // Feedback event handlers
+    const feedbackStatus = document.getElementById('scamshield-feedback-status');
+    const feedbackBtns = document.getElementById('scamshield-feedback-btn-group');
+    const feedbackDetails = document.getElementById('scamshield-fb-details');
+    const feedbackNote = document.getElementById('scamshield-fb-note');
+
+    async function sendFeedbackPayload(isAccurate, feedbackType, userNotes = '') {
+      if (feedbackStatus) feedbackStatus.innerText = 'Syncing...';
+      try {
+        await fetch('http://localhost:5001/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messageText: emailData.fullText || emailData.bodyText,
+            predictedScore: result.score,
+            predictedRiskLevel: result.riskLevel,
+            isAccurate,
+            feedbackType,
+            userNotes,
+            sender: emailData.sender,
+            links: emailData.links || []
+          })
+        });
+        if (feedbackBtns) feedbackBtns.style.display = 'none';
+        if (feedbackDetails) feedbackDetails.style.display = 'none';
+        if (feedbackStatus) {
+          feedbackStatus.innerText = isAccurate ? '✓ Verified (Logged to S3)' : '✓ Correction Saved to S3 Memory';
+          feedbackStatus.style.color = isAccurate ? '#34d399' : '#38bdf8';
+        }
+      } catch {
+        if (feedbackStatus) feedbackStatus.innerText = 'Recorded (Offline Mode)';
+      }
+    }
+
+    document.getElementById('scamshield-fb-accurate')?.addEventListener('click', () => {
+      sendFeedbackPayload(true, 'ACCURATE');
+    });
+
+    document.getElementById('scamshield-fb-falsealarm')?.addEventListener('click', () => {
+      if (feedbackDetails) feedbackDetails.style.display = 'block';
+    });
+
+    document.getElementById('scamshield-fb-submit')?.addEventListener('click', () => {
+      const note = feedbackNote ? feedbackNote.value.trim() : '';
+      sendFeedbackPayload(false, 'FALSE_POSITIVE', note || 'User flagged as False Alarm');
     });
   }
 
