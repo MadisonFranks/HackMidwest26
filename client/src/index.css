@@ -5,8 +5,14 @@
   box-sizing: border-box;
 }
 
+/* Default Extension Popup Sizing: Prevents square collapse in Chrome toolbar */
 html,
 body {
+  width: 440px;
+  min-width: 440px;
+  max-width: 440px;
+  min-height: 580px;
+  height: auto;
   margin: 0;
   padding: 0;
   background: #ffffff;
@@ -16,6 +22,8 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -26,19 +34,7 @@ body {
   }
 }
 
-/* Extension Popup Mode: Fixes Chrome toolbar popup window sizing */
-html.extension-popup-mode,
-html.extension-popup-mode body {
-  width: 440px;
-  min-width: 440px;
-  max-width: 440px;
-  min-height: 580px;
-  height: auto;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-html.extension-popup-mode #root {
+#root {
   width: 440px;
   min-width: 440px;
   max-width: 440px;
@@ -50,18 +46,19 @@ html.extension-popup-mode #root {
 
 /* Full Screen Web Mode: Full viewport with stationary sidebar & scrolling content */
 html.full-screen-mode,
-html.full-screen-mode body,
-html:not(.extension-popup-mode),
-html:not(.extension-popup-mode) body {
+html.full-screen-mode body {
   width: 100%;
+  min-width: 0;
+  max-width: none;
   height: 100%;
   min-height: 100vh;
   overflow: hidden;
 }
 
-html.full-screen-mode #root,
-html:not(.extension-popup-mode) #root {
+html.full-screen-mode #root {
   width: 100%;
+  min-width: 0;
+  max-width: none;
   height: 100%;
   min-height: 100vh;
   display: flex;
