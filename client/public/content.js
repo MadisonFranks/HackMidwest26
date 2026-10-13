@@ -4,9 +4,11 @@
 
   let floatingBtn = null;
   let assessmentCard = null;
+  let consentModal = null;
   let isScanning = false;
   let protectionSettings = {
     allowEmailOverlay: true,
+    emailScanConsentGranted: false,
   };
 
   // 0. Synchronize protection settings from ScamShield Settings Console
@@ -262,9 +264,148 @@
     }
   }
 
+  // 3.5 In-Page Permission & Consent Modal
+  function showInPageConsentModal(onGranted) {
+    if (consentModal) consentModal.remove();
+
+    consentModal = document.createElement('div');
+    consentModal.id = 'scamshield-consent-modal-overlay';
+    Object.assign(consentModal.style, {
+      position: 'fixed',
+      inset: '0',
+      background: 'rgba(3, 7, 18, 0.72)',
+      backdropFilter: 'blur(5px)',
+      webkitBackdropFilter: 'blur(5px)',
+      zIndex: '999999999',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px',
+      boxSizing: 'border-box',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    });
+
+    const card = document.createElement('div');
+    Object.assign(card.style, {
+      width: '460px',
+      maxWidth: '100%',
+      background: '#0f172a',
+      border: '1px solid rgba(99, 102, 241, 0.4)',
+      borderRadius: '16px',
+      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(99, 102, 241, 0.2)',
+      color: '#f8fafc',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column'
+    });
+
+    card.innerHTML = `
+      <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(14, 165, 233, 0.08)); padding: 20px 24px; border-bottom: 1px solid #1e293b; display: flex; align-items: flex-start; justify-content: space-between;">
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #ffffff;">Email Scanning Permission</h3>
+              <span style="font-size: 10px; font-weight: 700; background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4); padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">User Consent</span>
+            </div>
+            <p style="margin: 3px 0 0; font-size: 12px; color: #94a3b8;">ScamShield AI Browser Protection</p>
+          </div>
+        </div>
+        <button id="scamshield-consent-close" style="background: none; border: none; color: #64748b; font-size: 20px; cursor: pointer; padding: 0 4px; line-height: 1;">✕</button>
+      </div>
+
+      <div style="padding: 22px 24px;">
+        <p style="margin: 0 0 16px; font-size: 13px; line-height: 1.55; color: #e2e8f0;">
+          Allow ScamShield AI to inspect this opened email thread to evaluate security risk and protect you from phishing traps?
+        </p>
+
+        <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid #1e293b; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px;">
+          <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #818cf8; margin-bottom: 10px;">What ScamShield Analyzes:</div>
+          <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #cbd5e1;">
+            <div style="display: flex; align-items: flex-start; gap: 8px;">
+              <span style="color: #10b981; font-weight: 700;">✓</span>
+              <span><strong>Sender address & subject</strong> — detects domain typosquatting and impersonation</span>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 8px;">
+              <span style="color: #10b981; font-weight: 700;">✓</span>
+              <span><strong>Message body text</strong> — identifies urgency traps, payment pressure, and OTP scams</span>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 8px;">
+              <span style="color: #10b981; font-weight: 700;">✓</span>
+              <span><strong>Destination links</strong> — checks against threat feeds and cloud risk heuristics</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 10px 12px; margin-bottom: 18px; display: flex; align-items: flex-start; gap: 8px; font-size: 11px; color: #a7f3d0; line-height: 1.4;">
+          <span style="font-size: 13px;">🔒</span>
+          <span><strong>Privacy Guarantee:</strong> Scanning is conducted strictly for real-time risk assessment via AWS Bedrock. We never store personal correspondence or harvest account credentials.</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
+          <input type="checkbox" id="scamshield-remember-consent" checked style="accent-color: #6366f1; width: 15px; height: 15px; cursor: pointer;" />
+          <label for="scamshield-remember-consent" style="font-size: 12px; color: #94a3b8; cursor: pointer; user-select: none;">
+            Remember my consent on this browser (can be revoked in Settings)
+          </label>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button id="scamshield-consent-deny" style="padding: 9px 16px; border-radius: 8px; border: 1px solid #334155; background: transparent; color: #94a3b8; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease;">
+            Decline
+          </button>
+          <button id="scamshield-consent-allow" style="padding: 9px 20px; border-radius: 8px; border: 1px solid transparent; background: #6366f1; color: #ffffff; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35); transition: all 0.15s ease;">
+            Allow & Scan Email
+          </button>
+        </div>
+      </div>
+    `;
+
+    consentModal.appendChild(card);
+    document.body.appendChild(consentModal);
+
+    const closeModal = () => {
+      if (consentModal) {
+        consentModal.remove();
+        consentModal = null;
+      }
+    };
+
+    document.getElementById('scamshield-consent-close')?.addEventListener('click', closeModal);
+    document.getElementById('scamshield-consent-deny')?.addEventListener('click', closeModal);
+
+    document.getElementById('scamshield-consent-allow')?.addEventListener('click', () => {
+      const rememberCheckbox = document.getElementById('scamshield-remember-consent');
+      const remember = rememberCheckbox ? rememberCheckbox.checked : true;
+      if (remember) {
+        protectionSettings.emailScanConsentGranted = true;
+        if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+          chrome.storage.local.get(['scamshield_settings'], (result) => {
+            const current = result?.scamshield_settings || {};
+            current.emailScanConsentGranted = true;
+            current.emailScanConsentTimestamp = new Date().toISOString();
+            chrome.storage.local.set({ scamshield_settings: current });
+          });
+        }
+      }
+      closeModal();
+      if (typeof onGranted === 'function') {
+        onGranted();
+      }
+    });
+  }
+
   // 4. Handle scan trigger
-  async function handleScanClick() {
+  async function handleScanClick(bypassConsent = false) {
     if (isScanning) return;
+
+    if (!bypassConsent && !protectionSettings.emailScanConsentGranted) {
+      showInPageConsentModal(() => handleScanClick(true));
+      return;
+    }
 
     const emailData = extractEmailData();
     if (!emailData.hasEmail) {

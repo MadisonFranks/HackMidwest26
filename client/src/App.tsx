@@ -187,6 +187,8 @@ type NavView = 'scanner' | 'url_inspector' | 'threat_vault' | 'agent_telemetry' 
 export interface ProtectionSettings {
   allowEmailOverlay: boolean
   autoDetectEmails: boolean
+  emailScanConsentGranted: boolean
+  emailScanConsentTimestamp?: string
   syncToS3ThreatVault: boolean
   enableFeedbackLearning: boolean
   highlightSuspiciousDomains: boolean
@@ -198,6 +200,7 @@ export interface ProtectionSettings {
 const DEFAULT_SETTINGS: ProtectionSettings = {
   allowEmailOverlay: true,
   autoDetectEmails: true,
+  emailScanConsentGranted: false,
   syncToS3ThreatVault: true,
   enableFeedbackLearning: true,
   highlightSuspiciousDomains: true,
@@ -451,6 +454,7 @@ function App() {
     return DEFAULT_SETTINGS
   })
   const [settingsSavedNotice, setSettingsSavedNotice] = useState(false)
+  const [showConsentModal, setShowConsentModal] = useState(false)
 
   // Sync settings with Chrome Extension storage if available
   useEffect(() => {
@@ -460,6 +464,19 @@ function App() {
           setSettings((prev) => ({ ...prev, ...(result.scamshield_settings as Partial<ProtectionSettings>) }))
         }
       })
+
+      const storageListener = (changes: { [key: string]: chrome.storage.StorageChange }, area: string) => {
+        if (area === 'local' && changes.scamshield_settings) {
+          const newSettings = changes.scamshield_settings.newValue
+          if (newSettings && typeof newSettings === 'object') {
+            setSettings((prev) => ({ ...prev, ...(newSettings as Partial<ProtectionSettings>) }))
+          }
+        }
+      }
+      chrome.storage.onChanged.addListener(storageListener)
+      return () => {
+        chrome.storage.onChanged.removeListener(storageListener)
+      }
     }
   }, [])
 
@@ -898,13 +915,17 @@ function App() {
     setActiveTelemetryStep(0)
   }
 
-  function autoDetectFromTab() {
-    if (!settings.autoDetectEmails) {
-      setDetectStatus('Active tab email auto-detection is currently disabled in Settings.')
-      setTimeout(() => setDetectStatus(null), 3500)
-      return
+  function handleGrantConsent(andAutoDetect = false) {
+    updateSetting('emailScanConsentGranted', true)
+    setShowConsentModal(false)
+    if (andAutoDetect) {
+      setTimeout(() => {
+        executeTabDetection()
+      }, 60)
     }
+  }
 
+  function executeTabDetection() {
     if (typeof chrome !== 'undefined' && chrome.tabs?.query) {
       setDetectStatus('Checking active tab for open email...')
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -932,6 +953,21 @@ function App() {
       setDetectStatus('Tab auto-detection runs inside the Chrome extension.')
       setTimeout(() => setDetectStatus(null), 3500)
     }
+  }
+
+  function autoDetectFromTab() {
+    if (!settings.autoDetectEmails) {
+      setDetectStatus('Active tab email auto-detection is currently disabled in Settings.')
+      setTimeout(() => setDetectStatus(null), 3500)
+      return
+    }
+
+    if (!settings.emailScanConsentGranted) {
+      setShowConsentModal(true)
+      return
+    }
+
+    executeTabDetection()
   }
 
   function loadExample() {
@@ -2410,6 +2446,30 @@ ScamShield Protection Team (Spoofed)`,
                       <span className="toggle-slider"></span>
                     </label>
                   </div>
+
+                  {/* Setting: emailScanConsentGranted */}
+                  <div className="settings-item-row">
+                    <div className="settings-item-info">
+                      <div className="settings-item-title-row">
+                        <strong>User Consent for Email Content Inspection</strong>
+                        <span className="feature-pill badge-privacy">User Consent</span>
+                        <span className={`consent-status-badge ${settings.emailScanConsentGranted ? 'granted' : 'pending'}`}>
+                          {settings.emailScanConsentGranted ? '✓ Authorized' : '⚠️ Consent Required'}
+                        </span>
+                      </div>
+                      <p>
+                        Explicit permission to inspect open emails in Gmail, Outlook, and webmail tabs for threat evaluation. When disabled, ScamShield will ask for your consent before scanning any email.
+                      </p>
+                    </div>
+                    <label className="toggle-switch" aria-label="Toggle user consent for email scanning">
+                      <input
+                        type="checkbox"
+                        checked={settings.emailScanConsentGranted}
+                        onChange={(e) => updateSetting('emailScanConsentGranted', e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
                 </div>
               </div>
 
@@ -2608,6 +2668,100 @@ ScamShield Protection Team (Spoofed)`,
           <small>Hack Midwest 2026 | AWS Bedrock + Strands Agents</small>
         </footer>
       </div>
+
+      {/* Permission & Privacy Consent Modal */}
+      {showConsentModal && (
+        <div className="consent-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="consent-modal-title">
+          <div className="consent-modal-card">
+            <div className="consent-modal-header">
+              <div className="consent-header-icon-group">
+                <div className="consent-icon-box">
+                  <ShieldIcon size={22} style={{ color: '#6366f1' }} />
+                </div>
+                <div>
+                  <div className="consent-title-row">
+                    <h3 id="consent-modal-title">Email Scanning Permission</h3>
+                    <span className="feature-pill badge-consent">User Consent</span>
+                  </div>
+                  <p className="consent-sub">ScamShield AI Browser Protection</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="consent-close-btn"
+                onClick={() => {
+                  setShowConsentModal(false)
+                  setDetectStatus('Email scanning permission was not granted.')
+                  setTimeout(() => setDetectStatus(null), 3500)
+                }}
+                aria-label="Close permission request"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="consent-modal-body">
+              <p className="consent-intro-text">
+                Before inspecting email content to evaluate risk, ScamShield AI requests your explicit permission.
+              </p>
+
+              <div className="consent-info-box">
+                <div className="consent-box-title">What ScamShield Analyzes:</div>
+                <ul className="consent-list">
+                  <li>
+                    <span className="consent-check">✓</span>
+                    <span><strong>Sender address & subject:</strong> Verifies domain authenticity and lookalike spoofs.</span>
+                  </li>
+                  <li>
+                    <span className="consent-check">✓</span>
+                    <span><strong>Email body text:</strong> Evaluates urgency cues, wire transfer demands, and deceptive traps.</span>
+                  </li>
+                  <li>
+                    <span className="consent-check">✓</span>
+                    <span><strong>Destination links:</strong> Checks destination URLs against heuristic threat rules.</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="consent-privacy-callout">
+                <span className="privacy-lock-icon">🔒</span>
+                <div>
+                  <strong>Privacy & Data Commitment:</strong>
+                  <p>
+                    Your emails are analyzed strictly in real-time to compute threat assessments with AWS Bedrock. We never store personal inbox correspondence, harvest credentials, or share your data with advertisers.
+                  </p>
+                </div>
+              </div>
+
+              <p className="consent-note">
+                You can revoke or modify this permission at any time in the <strong>Settings</strong> console.
+              </p>
+            </div>
+
+            <div className="consent-modal-footer">
+              <button
+                type="button"
+                className="consent-btn-secondary"
+                onClick={() => {
+                  setShowConsentModal(false)
+                  setDetectStatus('Email scanning permission was declined.')
+                  setTimeout(() => setDetectStatus(null), 3500)
+                }}
+              >
+                Decline
+              </button>
+              <button
+                type="button"
+                className="consent-btn-primary"
+                onClick={() => handleGrantConsent(true)}
+              >
+                <CheckIcon size={15} />
+                <span>Allow & Scan Email</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
