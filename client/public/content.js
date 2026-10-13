@@ -19,6 +19,8 @@
         if (protectionSettings.allowEmailOverlay === false) {
           if (floatingBtn) floatingBtn.style.display = 'none';
           if (assessmentCard) assessmentCard.style.display = 'none';
+        } else {
+          updateFloatingButtonAppearance();
         }
       }
     });
@@ -32,6 +34,7 @@
           if (assessmentCard) assessmentCard.style.display = 'none';
         } else {
           ensureFloatingButton();
+          updateFloatingButtonAppearance();
         }
       }
     });
@@ -194,7 +197,39 @@
     }
   });
 
-  // 3. Inject floating "Scan This Email" button when an email is present
+  // 3. Update floating button appearance based on in-app permission status
+  function updateFloatingButtonAppearance() {
+    if (!floatingBtn) return;
+    const isConsentGranted = Boolean(protectionSettings.emailScanConsentGranted);
+
+    if (isScanning) {
+      floatingBtn.title = 'ScamShield is analyzing email with AWS Bedrock...';
+      return;
+    }
+
+    if (isConsentGranted) {
+      floatingBtn.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span id="scamshield-btn-label" style="font-weight: 600; font-size: 13px; letter-spacing: -0.01em;">Scan Email with ScamShield</span>
+        </div>
+      `;
+      floatingBtn.title = 'Scan this email for threats and phishing with ScamShield AI';
+      floatingBtn.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+    } else {
+      floatingBtn.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span id="scamshield-btn-label" style="font-weight: 600; font-size: 13px; letter-spacing: -0.01em;">Scan Email with ScamShield</span>
+          <span id="scamshield-consent-pill" style="font-size: 10px; font-weight: 700; background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); padding: 1px 6px; border-radius: 4px; letter-spacing: 0.3px; text-transform: uppercase;">Permission Required</span>
+        </div>
+      `;
+      floatingBtn.title = 'ScamShield AI • Permission required before scanning email. Click to review consent.';
+      floatingBtn.style.borderColor = 'rgba(245, 158, 11, 0.5)';
+    }
+  }
+
+  // 3.5 Inject floating "Scan This Email" button when an email is present
   function ensureFloatingButton() {
     if (protectionSettings.allowEmailOverlay === false) {
       if (floatingBtn) floatingBtn.style.display = 'none';
@@ -214,12 +249,7 @@
     if (!floatingBtn) {
       floatingBtn = document.createElement('div');
       floatingBtn.id = 'scamshield-floating-trigger';
-      floatingBtn.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span id="scamshield-btn-label" style="font-weight: 600; font-size: 13px; letter-spacing: -0.01em;">Scan Email with ScamShield</span>
-        </div>
-      `;
+      updateFloatingButtonAppearance();
 
       Object.assign(floatingBtn.style, {
         position: 'fixed',
@@ -252,7 +282,7 @@
       floatingBtn.addEventListener('mouseleave', () => {
         if (!isScanning) {
           floatingBtn.style.transform = 'none';
-          floatingBtn.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+          floatingBtn.style.borderColor = protectionSettings.emailScanConsentGranted ? 'rgba(56, 189, 248, 0.4)' : 'rgba(245, 158, 11, 0.5)';
           floatingBtn.style.boxShadow = '0 8px 24px -4px rgba(0, 0, 0, 0.45), 0 0 16px rgba(56, 189, 248, 0.25)';
         }
       });
@@ -260,6 +290,7 @@
       floatingBtn.addEventListener('click', handleScanClick);
       document.body.appendChild(floatingBtn);
     } else {
+      updateFloatingButtonAppearance();
       floatingBtn.style.display = 'flex';
     }
   }
@@ -391,6 +422,7 @@
           });
         }
       }
+      updateFloatingButtonAppearance();
       closeModal();
       if (typeof onGranted === 'function') {
         onGranted();
@@ -402,11 +434,31 @@
   async function handleScanClick(bypassConsent = false) {
     if (isScanning) return;
 
-    if (!bypassConsent && !protectionSettings.emailScanConsentGranted) {
-      showInPageConsentModal(() => handleScanClick(true));
-      return;
+    if (!bypassConsent) {
+      if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+        chrome.storage.local.get(['scamshield_settings'], (result) => {
+          const storedSettings = result?.scamshield_settings || {};
+          if (storedSettings.emailScanConsentGranted === true) {
+            protectionSettings.emailScanConsentGranted = true;
+            updateFloatingButtonAppearance();
+            proceedWithScan();
+          } else {
+            protectionSettings.emailScanConsentGranted = false;
+            updateFloatingButtonAppearance();
+            showInPageConsentModal(() => handleScanClick(true));
+          }
+        });
+        return;
+      } else if (!protectionSettings.emailScanConsentGranted) {
+        showInPageConsentModal(() => handleScanClick(true));
+        return;
+      }
     }
 
+    proceedWithScan();
+  }
+
+  async function proceedWithScan() {
     const emailData = extractEmailData();
     if (!emailData.hasEmail) {
       alert('Could not find readable email content on this page.');
@@ -440,9 +492,8 @@
         },
         (response) => {
           isScanning = false;
-          if (label) label.innerText = 'Scan Email with ScamShield';
+          updateFloatingButtonAppearance();
           floatingBtn.style.opacity = '1';
-          floatingBtn.style.borderColor = 'rgba(56, 189, 248, 0.4)';
 
           if (response && response.success && response.result) {
             renderAssessmentCard(response.result, emailData);
@@ -454,7 +505,7 @@
       );
     } catch (err) {
       isScanning = false;
-      if (label) label.innerText = 'Scan Email with ScamShield';
+      updateFloatingButtonAppearance();
       floatingBtn.style.opacity = '1';
       alert(`ScamShield: ${err.message}`);
     }
